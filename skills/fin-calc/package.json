@@ -1,0 +1,14 @@
+{
+  "name": "fin-calc",
+  "license": "GPL-3.0",
+  "version": "1.0.4",
+  "private": true,
+  "type": "module",
+  "description": "Financial calculator: PV, FV, PMT, NPV, IRR, RATE",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "finmaster": "*"
+  }
+}

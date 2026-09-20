@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ciweiai.com/contracts/agent-result.schema.json",
+  "title": "Hedgehog structured agent result protocol",
+  "oneOf": [
+    { "$ref": "#/$defs/longTaskGroupResult" },
+    { "$ref": "#/$defs/subAgentResult" },
+    { "$ref": "#/$defs/deliveryDecision" },
+    { "$ref": "#/$defs/deliveryEnvelope" }
+  ],
+  "$defs": {
+    "deliveryPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![\\\\/])(?![A-Za-z]:)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$))(?!.*(?:^|[\\\\/])\\.hedgehog(?:[\\\\/]|$))(?!.*[\\\\/]$).+$"
+    },
+    "longTaskGroupResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "type", "summary", "content", "output_files", "notes_for_next_group"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "type": { "const": "long_task_group_result" },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "output_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "notes_for_next_group": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "subAgentResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "type", "summary", "content", "output_files"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "type": { "const": "sub_agent_result" },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "output_files": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "deliveryDecision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "type", "mode"],
+          "properties": {
+            "schema_version": { "const": "1.0" },
+            "type": { "const": "delivery_decision" },
+            "mode": { "enum": ["none", "deliverables", "raw_data"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "type", "mode", "files"],
+          "properties": {
+            "schema_version": { "const": "1.0" },
+            "type": { "const": "delivery_decision" },
+            "mode": { "const": "selected_files" },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path"],
+                "properties": {
+                  "path": { "$ref": "#/$defs/deliveryPath" },
+                  "summary": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "deliveryEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "type", "files"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "type": { "const": "delivery_files" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": { "$ref": "#/$defs/deliveryPath" },
+              "summary": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

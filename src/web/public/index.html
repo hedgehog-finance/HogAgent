@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HogAgent Web UI</title>
+  <link rel="stylesheet" href="/styles.css?v=20260912">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo">
+          <img src="/logo.png" alt="HogAgent" class="logo-icon">
+          <div class="logo-text-group">
+            <div class="logo-title"><span class="logo-text">HogAgent</span><span class="app-version">v1.2.4</span></div>
+            <span class="logo-subtitle" data-i18n="logo.subtitle">Financial Research Agent</span>
+          </div>
+        </div>
+        <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar" data-i18n-title="nav.collapse" aria-controls="sidebar" aria-expanded="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+        </button>
+      </div>
+
+      <button class="btn btn-new-session" id="new-session-btn" data-i18n-title="chat.newSession">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7"/><path d="m16 3 5 5-10 10-5 1 1-5Z"/></svg>
+        <span class="btn-text" data-i18n="chat.newSession">New Session</span>
+      </button>
+
+      <!-- Panel Content -->
+      <div class="sidebar-panels" id="sidebar-panels">
+        <!-- Chat Panel -->
+        <div class="panel active" data-panel="chat">
+          <div class="panel-section">
+            <div class="section-title" data-i18n="chat.sessionList">Session List</div>
+            <ul class="session-list" id="session-list">
+              <li class="session-item active" data-session="current">
+                <span class="session-name" data-i18n="chat.currentSession">Current Session</span>
+                <span class="session-status" id="session-status" data-i18n="chat.connecting">Connecting</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <!-- Skills Panel (sidebar summary) -->
+        <div class="panel" data-panel="skills">
+          <div class="panel-section">
+            <ul class="item-list" id="skills-list">
+              <li class="empty-hint" data-i18n="skills.empty">No skills</li>
+            </ul>
+          </div>
+        </div>
+        <!-- Extensions Panel (sidebar summary) -->
+        <div class="panel" data-panel="extensions">
+          <div class="panel-section">
+            <ul class="item-list" id="extensions-list">
+              <li class="empty-hint" data-i18n="extensions.empty">No extensions</li>
+            </ul>
+          </div>
+        </div>
+        <!-- Tools Panel (sidebar summary) -->
+        <div class="panel" data-panel="tools">
+          <div class="panel-section">
+            <ul class="item-list" id="tools-sidebar-list">
+              <li class="empty-hint" data-i18n="tools.empty">No tools</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav" id="sidebar-nav">
+        <button class="nav-item active" data-panel="chat" data-i18n-title="nav.chat">
+          <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-label" data-i18n="nav.chat">Chat</span>
+        </button>
+        <button class="nav-item" data-panel="skills" data-i18n-title="nav.skills">
+          <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+          <span class="nav-label" data-i18n="nav.skills">Skills</span>
+        </button>
+        <button class="nav-item" data-panel="extensions" data-i18n-title="nav.extensions">
+          <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6a2 2 0 1 1 4 0h6v6a2 2 0 1 0 0 4v6h-6a2 2 0 1 1-4 0H4v-6a2 2 0 1 0 0-4V4z"/></svg></span>
+          <span class="nav-label" data-i18n="nav.extensions">Extensions</span>
+        </button>
+        <button class="nav-item" data-panel="tools" data-i18n-title="nav.tools">
+          <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/><path d="M2 2l5 5M7 2L2 7"/></svg></span>
+          <span class="nav-label" data-i18n="nav.tools">Tools</span>
+        </button>
+      </nav>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <!-- User selector dropdown -->
+        <div class="user-selector" id="user-selector">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <select id="user-select" class="user-select-dropdown">
+            <option value="default">default</option>
+          </select>
+        </div>
+        <div class="footer-row footer-bottom-row">
+          <!-- Language switcher -->
+          <select id="lang-selector" class="lang-selector"></select>
+          <!-- Theme switcher -->
+          <select id="theme-selector" class="lang-selector" data-i18n-title="nav.theme"></select>
+          <!-- Settings button (icon-only) -->
+          <button class="btn btn-ghost btn-icon-sm" id="settings-btn" data-i18n-title="nav.settings">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+    <!-- Main Area -->
+    <main class="main">
+      <header class="chat-header">
+        <button class="sidebar-toggle" id="sidebar-toggle" data-i18n-title="nav.expand" aria-controls="sidebar" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
+        <div class="chat-title" id="chat-title" data-i18n="nav.chat">Chat</div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm token-stats-btn" id="token-stats-btn" data-i18n="chat.tokenStats">Token Stats</button>
+          <button class="btn btn-ghost btn-sm" id="abort-btn" disabled data-i18n="chat.stop">Stop</button>
+          <button class="btn btn-ghost btn-sm" id="compact-btn" data-i18n="chat.compress">Compress</button>
+        </div>
+      </header>
+      <!-- Skills Page View -->
+      <div class="page-view" id="skills-page" style="display:none">
+        <div class="page-header">
+          <h2 data-i18n="skills.title">Skills Management</h2>
+          <button class="btn btn-primary btn-sm" id="install-skill-page-btn" data-i18n="skills.install">Install New Skill</button>
+        </div>
+        <table class="data-table" id="skills-table">
+          <colgroup>
+            <col style="width:auto">
+            <col style="width:auto">
+            <col style="width:80px">
+            <col style="width:120px">
+            <col style="width:200px">
+          </colgroup>
+          <thead><tr>
+            <th data-i18n="skills.name">Name</th>
+            <th data-i18n="skills.description">Description</th>
+            <th data-i18n="skills.version">Version</th>
+            <th data-i18n="skills.scope">Source</th>
+            <th data-i18n="skills.operations">Operations</th>
+          </tr></thead>
+          <tbody id="skills-table-body"></tbody>
+        </table>
+        <div class="empty-state" id="skills-empty" style="display:none" data-i18n="skills.empty">No skills</div>
+      </div>
+
+      <!-- Extensions Page View -->
+      <div class="page-view" id="extensions-page" style="display:none">
+        <div class="page-header">
+          <h2 data-i18n="extensions.title">Extensions Info</h2>
+        </div>
+        <table class="data-table" id="extensions-table">
+          <thead><tr>
+            <th data-i18n="extensions.name">Name</th>
+            <th data-i18n="extensions.scope">Source</th>
+          </tr></thead>
+          <tbody id="extensions-table-body"></tbody>
+        </table>
+        <div class="empty-state" id="extensions-empty" style="display:none" data-i18n="extensions.empty">No extensions</div>
+      </div>
+
+      <!-- Tools Page View -->
+      <div class="page-view" id="tools-page" style="display:none">
+        <div class="page-header">
+          <h2 data-i18n="tools.title">Tools List</h2>
+        </div>
+        <table class="data-table" id="tools-table">
+          <thead><tr>
+            <th data-i18n="tools.name">Tool Name</th>
+            <th data-i18n="tools.type" style="width:140px">Type</th>
+          </tr></thead>
+          <tbody id="tools-table-body"></tbody>
+        </table>
+        <div class="empty-state" id="tools-empty" style="display:none" data-i18n="tools.empty">No tools</div>
+      </div>
+
+      <div class="messages-container" id="messages-container">
+        <div class="welcome-message">
+          <svg class="welcome-mark" width="56" height="56" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="8" width="36" height="32" rx="12"/><path d="m16 19 5 5-5 5M26 29h6"/></svg>
+          <h1 data-i18n="chat.welcome">Welcome to HogAgent</h1>
+          <p data-i18n="chat.welcomeDesc">AI assistant interface. Type your question to start a conversation.</p>
+          <div class="capabilities" id="capabilities">
+            <span class="capability" data-i18n="chat.waitingConnection">Waiting for connection...</span>
+          </div>
+        </div>
+      </div>
+      <div class="drag-overlay" id="drag-overlay">
+        <div class="drag-overlay-content">
+          <span class="drag-icon">📁</span>
+          <span data-i18n="chat.dragFiles">Drag and drop files here to upload</span>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-toolbar">
+          <label class="mode-label" for="mode-selector" data-i18n="chat.mode">Mode:</label>
+          <select class="mode-selector" id="mode-selector" aria-describedby="mode-hint">
+            <option value="quick">quick</option>
+            <option value="standard" selected>standard</option>
+            <option value="long_task">long_task</option>
+          </select>
+          <span class="longtask-hint" id="mode-hint" data-i18n="chat.standardHint">Standard chat, loads all tools and most skills (except long-task dedicated skills)</span>
+        </div>
+        <div class="input-row">
+          <div class="upload-preview" id="upload-preview" style="display:none"></div>
+          <textarea class="message-input" id="message-input"
+            data-i18n-placeholder="chat.placeholder" data-i18n-aria-label="chat.placeholder"
+            placeholder="Type a message..." rows="1"></textarea>
+          <div class="composer-actions">
+            <button class="btn btn-ghost btn-icon upload-btn" id="upload-btn" title="Upload files" data-i18n-title="chat.upload"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
+            <input type="file" id="file-input" multiple style="display:none">
+            <div class="slash-autocomplete" id="slash-autocomplete"></div>
+            <!-- Tools/Skills button + floating menu -->
+            <div class="skill-dropdown" id="skill-dropdown">
+              <button type="button" class="btn btn-ghost btn-icon upload-btn skill-btn" id="skill-btn" title="Tools/Skills" data-i18n-title="commands.selectToolOrSkill" aria-controls="skill-menu" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></button>
+              <div class="skill-menu" id="skill-menu"></div>
+              <div class="skill-submenu" id="skill-submenu"></div>
+            </div>
+            <!-- Theme color preview Tooltip -->
+            <div class="theme-preview-tooltip" id="theme-preview-tooltip"></div>
+            <button class="model-indicator" id="model-indicator" type="button" data-i18n-title="settings.quickModel" aria-controls="composer-model-panel" aria-expanded="false">Model: -</button>
+            <section class="composer-model-panel" id="composer-model-panel" hidden aria-labelledby="composer-model-title">
+              <div class="composer-model-heading"><strong id="composer-model-title" data-i18n="settings.quickModel">Model &amp; thinking</strong><span id="composer-provider"></span></div>
+              <label for="composer-model-select" data-i18n="settings.model">Model</label>
+              <select id="composer-model-select" disabled><option value="auto">auto</option></select>
+              <div class="composer-thinking-heading"><label for="composer-thinking-level" data-i18n="settings.thinkingLevel">Thinking Depth</label><output id="composer-thinking-value" for="composer-thinking-level"></output></div>
+              <input type="range" id="composer-thinking-level" min="0" max="0" value="0" step="1" disabled>
+              <div class="range-labels" id="composer-thinking-labels"></div>
+              <div class="composer-model-footer"><span id="composer-model-status" role="status" aria-live="polite"></span><button class="btn btn-primary btn-sm" type="button" id="apply-composer-model" data-i18n="settings.applyModel" disabled>Apply</button></div>
+            </section>
+            <button class="btn send-btn" id="send-btn" disabled data-i18n-title="chat.send" data-i18n-aria-label="chat.send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="settings-heading"><h2 data-i18n="settings.title">Settings</h2><span class="app-version">HogAgent v1.2.4</span></div>
+        <button class="btn btn-icon" id="close-settings">✕</button>
+      </div>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="main-llm" data-i18n="settings.mainLLM">Main LLM Config</button>
+        <button class="settings-tab" data-tab="audit-llm" data-i18n="settings.auditLLM">Audit LLM Config</button>
+        <button class="settings-tab" data-tab="search" data-i18n="settings.search">Search Config</button>
+        <button class="settings-tab" data-tab="external-mcp" data-i18n="settings.externalMcp">External MCP</button>
+        <button class="settings-tab" data-tab="system" data-i18n="settings.system">System</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Tab: Main LLM Config -->
+        <div class="settings-tab-panel active" data-tab="main-llm">
+          <!-- LLM Provider -->
+          <div class="setting-group">
+            <label for="provider-select" data-i18n="settings.provider">LLM Provider</label>
+            <select id="provider-select">
+              <option value="hedgehog" data-i18n="settings.hedgehogDefault">Hedgehog (Default)</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="google">Google (Gemini)</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="mistral">Mistral</option>
+              <option value="xai">xAI (Grok)</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="custom" data-i18n="settings.custom">Custom</option>
+            </select>
+          </div>
+
+          <div class="setting-group" id="base-url-group">
+            <label for="base-url-input">Base URL</label>
+            <input type="text" id="base-url-input" placeholder="https://api.openai.com/v1" autocomplete="off">
+            <div class="setting-hint" data-i18n="settings.baseUrlHint">Leave empty to use provider default URL</div>
+          </div>
+
+          <div class="setting-group" id="api-key-group">
+            <label for="api-key-input">API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off">
+              <button class="btn btn-ghost btn-sm" id="toggle-api-key-visibility" title="Show/Hide" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button class="btn btn-ghost btn-sm" id="test-api-key-btn" title="Test API Key" data-i18n-title="settings.testApiKey"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+            </div>
+            <div class="api-key-status" id="api-key-status"></div>
+            <div class="setting-hint" data-i18n="settings.apiKeyHint">Leave empty to use Key from environment variables</div>
+          </div>
+
+          <div class="current-provider" id="current-provider-display">
+            <span data-i18n="settings.current">Current:</span>
+            <span class="value" id="current-provider-value" data-i18n="settings.waitingConnection">Waiting for connection...</span>
+          </div>
+
+          <!-- Model Selection (linked to provider) -->
+          <div class="setting-group">
+            <label for="model-select" data-i18n="settings.model">Model</label>
+            <div class="model-row">
+              <select id="model-select" disabled>
+                <option value="" data-i18n="settings.loading">Loading...</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" id="refresh-models-btn" title="Fetch latest model list" data-i18n-title="settings.refreshModels"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            </div>
+            <input type="text" id="custom-model-input" data-i18n-placeholder="settings.customModelPlaceholder" placeholder="Or enter model ID directly (e.g. claude-3-opus-20240229)" style="margin-top:4px;font-size:13px">
+            <div class="setting-hint" id="model-hint"></div>
+            <div class="model-refresh-status" id="model-refresh-status"></div>
+          </div>
+
+          <!-- Thinking Level -->
+          <div class="setting-group">
+            <label for="thinking-level" data-i18n="settings.thinkingLevel">Thinking Depth</label>
+            <input type="range" id="thinking-level" min="0" max="5" value="3">
+            <div class="range-labels">
+              <span data-i18n="settings.thinkingOff">Off</span><span data-i18n="settings.thinkingMin">Min</span><span data-i18n="settings.thinkingLow">Low</span><span data-i18n="settings.thinkingMid">Mid</span><span data-i18n="settings.thinkingHigh">High</span><span data-i18n="settings.thinkingExtreme">Max</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Audit LLM Config -->
+        <div class="settings-tab-panel" data-tab="audit-llm">
+          <div class="setting-group">
+            <div class="setting-hint" style="margin-bottom:12px" data-i18n="settings.auditHint">Configure audit model to enable unified audit entry: auto-classify intent, optimize prompts, Long Task orchestration and acceptance</div>
+          </div>
+
+          <div class="setting-group">
+            <label for="audit-provider-select" data-i18n="settings.auditProvider">Audit Model Provider</label>
+            <select id="audit-provider-select">
+              <option value="" data-i18n="settings.off">Off</option>
+              <option value="hedgehog" data-i18n="settings.hedgehogDefault">Hedgehog (Default)</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="google">Google (Gemini)</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="mistral">Mistral</option>
+              <option value="xai">xAI (Grok)</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="custom" data-i18n="settings.custom">Custom</option>
+            </select>
+          </div>
+
+          <div class="setting-group" id="audit-base-url-group" style="display:none">
+            <label for="audit-base-url-input">Base URL</label>
+            <input type="text" id="audit-base-url-input" placeholder="https://api.openai.com/v1" autocomplete="off">
+          </div>
+
+          <div class="setting-group" id="audit-api-key-group" style="display:none">
+            <label for="audit-api-key-input">API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="audit-api-key-input" placeholder="sk-..." autocomplete="off">
+              <button class="btn btn-ghost btn-sm" id="toggle-audit-api-key-visibility" title="Show/Hide" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+
+          <div class="setting-group" id="audit-model-group" style="display:none">
+            <label for="audit-model-select" data-i18n="settings.model">Model</label>
+            <div class="model-row">
+              <select id="audit-model-select" disabled>
+                <option value="" data-i18n="settings.loading">Loading...</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" id="refresh-audit-models-btn" title="Fetch latest model list" data-i18n-title="settings.refreshModels"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            </div>
+            <input type="text" id="custom-audit-model-input" data-i18n-placeholder="settings.customModelPlaceholder" placeholder="Or enter model ID directly" style="margin-top:4px;font-size:13px">
+            <div class="setting-hint" id="audit-model-refresh-status"></div>
+          </div>
+
+          <div class="setting-group" id="audit-score-group" style="display:none">
+            <label for="audit-min-score" data-i18n="settings.minScore">Min passing score: <span id="audit-score-value">70</span></label>
+            <input type="range" id="audit-min-score" min="0" max="100" value="70">
+          </div>
+
+          <div class="setting-group" id="audit-iterations-group" style="display:none">
+            <label for="audit-max-iterations" data-i18n="settings.maxRetries">Max retries</label>
+            <input type="number" id="audit-max-iterations" min="1" max="10" value="2" style="width:80px">
+          </div>
+        </div>
+
+        <!-- Tab: Search Config -->
+        <div class="settings-tab-panel" data-tab="search">
+          <div class="setting-group">
+            <label for="active-search-provider-select" data-i18n="search.activeProvider">Active Search Provider</label>
+            <select id="active-search-provider-select">
+              <optgroup label="International Providers" data-i18n-label="search.intlProviders">
+                <option value="brave">Brave Search</option>
+                <option value="you">You.com</option>
+                <option value="tavily">Tavily</option>
+                <option value="serpapi">SerpAPI</option>
+                <option value="bing">Bing Search</option>
+                <option value="google">Google Custom Search</option>
+                <option value="custom" data-i18n="settings.custom">Custom</option>
+              </optgroup>
+              <optgroup label="China Providers" data-i18n-label="search.cnProviders">
+                <option value="bocha" data-i18n="search.providerBocha">Bocha AI (Bocha)</option>
+                <option value="metaso" data-i18n="search.providerMetaso">Metaso AI (Metaso)</option>
+                <option value="zhipu" data-i18n="search.providerZhipu">Zhipu AI (Zhipu)</option>
+                <option value="volcengine" data-i18n="search.providerVolcengine">Volcengine (Volcengine)</option>
+              </optgroup>
+            </select>
+            <div class="setting-hint" data-i18n="search.activeHint">Select the search provider for the current conversation, takes effect immediately after switching</div>
+          </div>
+
+          <div class="setting-group">
+            <label for="search-provider-select" data-i18n="search.configProvider">Configure Search Provider</label>
+            <select id="search-provider-select">
+              <optgroup label="International Providers" data-i18n-label="search.intlProviders">
+                <option value="brave">Brave Search</option>
+                <option value="you">You.com</option>
+                <option value="tavily">Tavily</option>
+                <option value="serpapi">SerpAPI</option>
+                <option value="bing">Bing Search</option>
+                <option value="google">Google Custom Search</option>
+                <option value="custom" data-i18n="settings.custom">Custom</option>
+              </optgroup>
+              <optgroup label="China Providers" data-i18n-label="search.cnProviders">
+                <option value="bocha" data-i18n="search.providerBocha">Bocha AI (Bocha)</option>
+                <option value="metaso" data-i18n="search.providerMetaso">Metaso AI (Metaso)</option>
+                <option value="zhipu" data-i18n="search.providerZhipu">Zhipu AI (Zhipu)</option>
+                <option value="volcengine" data-i18n="search.providerVolcengine">Volcengine (Volcengine)</option>
+              </optgroup>
+            </select>
+            <div class="setting-hint" data-i18n="search.configHint">Select a provider to configure, saved settings will be auto-filled</div>
+          </div>
+
+          <!-- Dynamic fields container — rendered by JS based on provider -->
+          <div id="search-fields-container"></div>
+
+          <div class="current-provider" id="current-search-provider-display">
+            <span data-i18n="search.currentActive">Currently Active:</span>
+            <span class="value" id="current-search-provider-value" data-i18n="search.notConfigured">Not configured</span>
+          </div>
+        </div>
+
+        <!-- Tab: External MCP -->
+        <div class="settings-tab-panel" data-tab="external-mcp">
+          <div class="mcp-warning" data-i18n="mcp.topologyWarning">
+            Avoid cyclic deployments where an MCP server synchronously calls back into this HogAgent or its active orchestration chain. This is an operational guideline, not a connection restriction.
+          </div>
+          <div class="mcp-toolbar">
+            <button type="button" class="btn btn-ghost btn-sm" id="add-mcp-server" data-i18n="mcp.addServer">Add server</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="reload-mcp-servers" data-i18n="mcp.reload">Reload</button>
+            <span class="setting-hint" id="mcp-settings-status"></span>
+          </div>
+          <div id="mcp-server-list"></div>
+          <div class="setting-hint" data-i18n="mcp.workspaceOverrideHint">
+            This page edits the system configuration only. Workspace overrides in .hogagent/mcp-servers.json remain manual and take precedence by server name.
+          </div>
+        </div>
+
+        <!-- Tab: System Config -->
+        <div class="settings-tab-panel" data-tab="system">
+          <!-- Bash Sandbox Mode -->
+          <div class="setting-group">
+            <label for="sandbox-mode-select" data-i18n="settings.sandboxMode">Bash Sandbox Mode (not supported on Windows)</label>
+            <select id="sandbox-mode-select">
+              <option value="enabled" data-i18n="settings.sandboxModeEnabled">Enabled</option>
+              <option value="fallback" data-i18n="settings.sandboxModeFallback">Enabled (disable on failure)</option>
+              <option value="disabled" data-i18n="settings.sandboxModeDisabled" selected>Disabled</option>
+            </select>
+            <div class="setting-hint" data-i18n="settings.sandboxModeHint">
+              Enabled is fail-closed; fallback uses an unrestricted shell if sandbox initialization fails; disabled always uses an unrestricted shell. Windows always uses an unrestricted shell and ignores this setting. Reconnect or restart HogAgent to apply.
+            </div>
+          </div>
+
+          <!-- Prompt Cache Toggle (only effective for hedgehog + qwen models) -->
+          <div class="setting-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="explicit-cache-toggle">
+              <span data-i18n="settings.explicitCache">Prompt Cache (Explicit)</span>
+            </label>
+            <div class="setting-hint" data-i18n="settings.explicitCacheHint">
+              Enable Anthropic-style cache_control markers for Qwen models via Hedgehog provider.
+              Reduces latency and cost by caching system prompt, tools, and conversation prefix.
+            </div>
+          </div>
+
+          <!-- Show Cache Stats Toggle -->
+          <div class="setting-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="show-cache-stats-toggle">
+              <span data-i18n="settings.showCacheStats">Show Cache Statistics</span>
+            </label>
+            <div class="setting-hint" data-i18n="settings.showCacheStatsHint">
+              Display cache_read / cache_write token counts in LLM usage info.
+            </div>
+          </div>
+
+          <!-- Content Compressor Threshold -->
+          <div class="setting-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="compressor-enabled-toggle">
+              <span data-i18n="settings.compressorEnabled">Content Compressor</span>
+            </label>
+            <div class="setting-hint" data-i18n="settings.compressorEnabledHint">
+              Off by default. Disabling applies after the current task finishes and removes retrieval tools. Enabling requires restart.
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label for="compress-threshold" data-i18n="settings.compressThreshold">Tool Call Result Compress Threshold (tokens)</label>
+            <input type="number" id="compress-threshold" min="500" max="50000" step="500" value="5000">
+            <div class="setting-hint" data-i18n="settings.compressThresholdHint">
+              Tool results exceeding this token count are auto-compressed. Default: 5000.
+            </div>
+          </div>
+
+          <!-- Sub-Agent Max Turns -->
+          <div class="setting-group">
+            <label for="subagent-max-turns" data-i18n="settings.subagentMaxTurns">Sub-Agent Max Turns</label>
+            <input type="number" id="subagent-max-turns" min="5" max="100" step="5" value="50">
+            <div class="setting-hint" data-i18n="settings.subagentMaxTurnsHint">
+              Maximum LLM turns before sub-agent is force-stopped. Default: 50.
+            </div>
+          </div>
+
+          <!-- Persistent Memory -->
+          <div class="setting-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="memory-enabled-toggle">
+              <span data-i18n="settings.memoryEnabled">Persistent Memory</span>
+            </label>
+            <div class="setting-hint" data-i18n="settings.memoryEnabledHint">
+              Enable cross-session memory via Gateway KB MCP Server. Registers memory_save / memory_search tools. Takes effect on next session.
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label for="memory-mcp-kb-url" data-i18n="settings.memoryMcpKbUrl">Memory MCP Server URL</label>
+            <input type="text" id="memory-mcp-kb-url" placeholder="http://127.0.0.1:59101">
+            <div class="setting-hint" data-i18n="settings.memoryMcpKbUrlHint">
+              Gateway KB MCP Server endpoint. Auto-filled by Gateway; leave as-is unless customized.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="save-settings" data-i18n="common.save">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skill Config Modal -->
+  <div class="modal-overlay" id="skill-config-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="skill-config-title" data-i18n="skills.config">Skill Config</h2>
+        <button class="btn btn-icon" id="close-skill-config">✕</button>
+      </div>
+      <div class="modal-body" id="skill-config-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="save-skill-config" data-i18n="common.save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skill Install Modal -->
+  <div class="modal-overlay" id="skill-install-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 data-i18n="skills.install">Install New Skill</h2>
+        <button class="btn btn-icon" id="close-skill-install">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label data-i18n="skills.installTarget">Install Target</label>
+          <div class="scope-selector">
+            <label><input type="radio" name="install-scope" value="user" checked> <span data-i18n="skills.scopeUser">User</span></label>
+            <label><input type="radio" name="install-scope" value="system"> <span data-i18n="skills.scopeSystem">System</span></label>
+          </div>
+        </div>
+        <div class="tab-switcher">
+          <button class="tab-btn active" data-install-tab="git">Git URL</button>
+          <button class="tab-btn" data-install-tab="zip">ZIP</button>
+        </div>
+        <div class="install-tab-panel active" data-install-tab="git">
+          <div class="setting-group">
+            <label data-i18n="skills.gitUrl">Git Repository URL</label>
+            <input type="text" id="install-git-url" class="skill-git-input" placeholder="https://github.com/..." autocomplete="off">
+          </div>
+        </div>
+        <div class="install-tab-panel" data-install-tab="zip" style="display:none">
+          <div class="setting-group">
+            <label data-i18n="skills.zipFile">ZIP File</label>
+            <input type="file" id="install-zip-file" accept=".zip">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="confirm-install-skill" data-i18n="skills.install">Install</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Token Statistics Modal -->
+  <div class="modal-overlay" id="token-stats-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 data-i18n="chat.tokenStatsTitle">Token Statistics</h2>
+        <button class="btn btn-icon" id="close-token-stats">&#x2715;</button>
+      </div>
+      <div class="modal-body" id="token-stats-body">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="markdown-preview-modal">
+    <div class="modal markdown-preview-modal">
+      <div class="modal-header">
+        <h2>Preview</h2>
+        <button class="btn btn-icon markdown-preview-close" data-i18n-title="common.close">✕</button>
+      </div>
+      <article class="modal-body markdown-preview-body" aria-live="polite"></article>
+    </div>
+  </div>
+  <link rel="stylesheet" href="/markdown-preview.css">
+  <script src="/app.js?v=20260912"></script>
+</body>
+</html>

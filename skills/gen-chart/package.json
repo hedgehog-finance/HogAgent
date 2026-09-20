@@ -1,0 +1,16 @@
+{
+  "name": "gen-chart",
+  "license": "GPL-3.0",
+  "version": "2.4.2",
+  "private": true,
+  "type": "module",
+  "description": "Generate charts as PNG/SVG (Vega-Lite, Mermaid) or ECharts JSON",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "vega": "^6.3.1",
+    "vega-lite": "^6.4.3"
+  }
+}

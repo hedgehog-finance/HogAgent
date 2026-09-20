@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ciweiai.com/contracts/artifact-run-policy.schema.json",
+  "title": "Hedgehog run-scoped artifact policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "delivery", "mutation"],
+  "$defs": {
+    "artifactPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![\\\\/])(?![A-Za-z]:)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$))(?!.*(?:^|[\\\\/])\\.hedgehog(?:[\\\\/]|$))(?!.*[\\\\/]$).+$"
+    }
+  },
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "locked", "source", "files"],
+      "properties": {
+        "mode": { "enum": ["none", "deliverables", "raw_data", "selected_files"] },
+        "locked": { "type": "boolean" },
+        "source": { "enum": ["system_default", "user_protocol"] },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifactPath" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "selected_files" } } },
+          "then": { "properties": { "files": { "minItems": 1 } } },
+          "else": { "properties": { "files": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "source": { "const": "user_protocol" } } },
+          "then": { "properties": { "locked": { "const": true } } },
+          "else": { "properties": { "locked": { "const": false } } }
+        }
+      ]
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "locked", "source"],
+      "properties": {
+        "mode": { "enum": ["contextual", "in_place", "new_version"] },
+        "locked": { "type": "boolean" },
+        "source": { "enum": ["system_default", "user_protocol"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "user_protocol" } } },
+          "then": {
+            "properties": {
+              "locked": { "const": true },
+              "mode": { "enum": ["in_place", "new_version"] }
+            }
+          },
+          "else": {
+            "properties": {
+              "locked": { "const": false }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

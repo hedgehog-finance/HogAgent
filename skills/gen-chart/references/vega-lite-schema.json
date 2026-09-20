@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hogagent.local/schema/vega-lite/v6.json",
+  "title": "Vega-Lite v6 Schema (local stub)",
+  "description": "Minimal local schema reference for Vega-Lite v6. Full schema available at node_modules/vega-lite/build/vega-lite-schema.json",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "mark": { "type": ["string", "object"] },
+    "encoding": { "type": "object" },
+    "data": { "type": "object" },
+    "transform": { "type": "array" },
+    "layer": { "type": "array" },
+    "concat": { "type": "array" },
+    "vconcat": { "type": "array" },
+    "hconcat": { "type": "array" },
+    "spec": { "type": "object" },
+    "facet": { "type": "object" },
+    "params": { "type": "array" },
+    "resolve": { "type": "object" },
+    "config": { "type": "object" },
+    "width": { "type": ["number", "string"] },
+    "height": { "type": ["number", "string"] },
+    "background": { "type": "string" },
+    "padding": { "type": ["number", "object"] },
+    "autosize": { "type": ["string", "object"] },
+    "title": { "type": ["string", "object"] },
+    "description": { "type": "string" }
+  }
+}

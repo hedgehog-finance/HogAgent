@@ -1,0 +1,34 @@
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+==========================================================================
+
+Copyright (c) 2026 FinanceHarness contributors.
+
+This dataset is licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International License.
+
+  Human-readable summary: https://creativecommons.org/licenses/by-nc/4.0/
+  Full legal code:        https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+You are free to share and adapt this material for non-commercial purposes,
+provided you give appropriate credit and indicate if changes were made.
+
+Non-Commercial Use Only
+-----------------------
+
+FinanceGym, its benchmark datasets, and retrieval tools are provided strictly
+for non-commercial research and evaluation. Commercial use — including
+integration into commercial financial advisory services, or using generated
+outputs to provide commercial investment advice — is strictly prohibited.
+
+No Investment Advice
+--------------------
+
+The questions in this dataset, and any model outputs derived from them, are
+research artifacts. They are not financial, investment, legal, or tax advice.
+
+Disclaimer
+----------
+
+THE DATASET IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.

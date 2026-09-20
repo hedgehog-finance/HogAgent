@@ -1,0 +1,19 @@
+{
+  "name": "doc-convert",
+  "license": "GPL-3.0",
+  "version": "2.1.2",
+  "private": true,
+  "type": "module",
+  "description": "Convert between document formats: MD/HTML/PDF/DOCX",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mammoth": "*",
+    "md-to-pdf": "*",
+    "puppeteer": "*",
+    "turndown": "*",
+    "turndown-plugin-gfm": "*",
+    "unpdf": "*"
+  }
+}

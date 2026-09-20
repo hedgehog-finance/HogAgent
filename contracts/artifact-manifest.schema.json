@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ciweiai.com/contracts/artifact-manifest.schema.json",
+  "title": "Hedgehog artifact manifest protocol",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_type",
+    "revision",
+    "run_id",
+    "producer",
+    "owner",
+    "generated_at",
+    "artifacts",
+    "changes",
+    "integrity"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "manifest_type": { "enum": ["session", "project"] },
+    "revision": { "type": "integer", "minimum": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "producer": { "type": "string", "minLength": 1 },
+    "owner": { "enum": ["agent", "gateway"] },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    },
+    "integrity": { "$ref": "#/$defs/integrity" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "manifest_type": { "const": "session" } } },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "properties": { "root": { "const": "session" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "manifest_type": { "const": "project" } } },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "properties": { "root": { "const": "project" } }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "role": {
+      "enum": ["intermediate", "raw_data", "regular", "deliverable"]
+    },
+    "access": {
+      "enum": ["none", "delivery_event", "project_api"]
+    },
+    "artifactPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.hedgehog(?:/|$)).+$"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["web_fetch", "web_search", "api", "upload", "database", "other"] },
+        "tool": { "type": "string", "minLength": 1 },
+        "fetched_at": { "type": "string", "format": "date-time" },
+        "locator": { "type": "string", "format": "uri", "pattern": "^https?://[^?#]+$" },
+        "title": { "type": "string" },
+        "content_type": { "type": "string" },
+        "data_range": { "type": "string" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "root",
+        "area",
+        "role",
+        "access",
+        "state",
+        "version",
+        "size",
+        "modified_at"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/artifactPath" },
+        "root": { "enum": ["session", "project"] },
+        "area": { "enum": ["task", "publish", "src", "data"] },
+        "role": { "$ref": "#/$defs/role" },
+        "access": { "$ref": "#/$defs/access" },
+        "state": { "enum": ["current", "superseded"] },
+        "version": { "type": "integer", "minimum": 1 },
+        "supersedes": { "$ref": "#/$defs/artifactPath" },
+        "size": { "type": "integer", "minimum": 0 },
+        "modified_at": { "type": "string", "format": "date-time" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "origin": { "$ref": "#/$defs/origin" }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "operation", "role", "access"],
+      "properties": {
+        "path": { "$ref": "#/$defs/artifactPath" },
+        "operation": { "enum": ["created", "modified_in_place", "version_created", "deleted"] },
+        "role": { "$ref": "#/$defs/role" },
+        "access": { "$ref": "#/$defs/access" },
+        "previous_path": { "$ref": "#/$defs/artifactPath" }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "warnings"],
+      "properties": {
+        "status": { "enum": ["ok", "warning"] },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
