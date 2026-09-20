@@ -86,3 +86,5 @@ npm run test:readme
 | [产物](docs/artifact-manifest.md) | 文件分类与交付 |
 | [Web UI](docs/web-ui.md) | 对话、设置和文件预览 |
 | [开发](docs/development.md) / [故障排除](docs/troubleshooting.md) | 构建、测试和诊断 |
+
+Windows 检出保留 LF 换行以保证构建一致。Python 环境支持经过验证的框架解释器符号链接；下载期间文件增长不会突破已声明的响应长度。

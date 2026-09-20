@@ -179,3 +179,5 @@ CLI args  >  llm-settings.json  >  env vars  >  workspace config  >  system conf
 - [Configuration Reference](./configuration.md)
 - [RPC Protocol](./orchestrator-integration.md)
 - [Troubleshooting](./troubleshooting.md)
+
+Framework Python installations may keep the venv base executable behind a symlink in their `home` directory. HogAgent accepts that layout only when the link resolves to the same trusted interpreter; launcher and pip validation remain mandatory.

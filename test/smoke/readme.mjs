@@ -78,9 +78,10 @@ function launch(args) {
   child.stderr.on('data', chunk => { state.stderr += chunk; });
   return state;
 }
-async function exited(state) {
-  await until(() => state.error || state.child.exitCode !== null, 'process exit');
+async function exited(state, expectedSignal) {
+  await until(() => state.error || state.child.exitCode !== null || state.child.signalCode !== null, 'process exit');
   if (state.error) throw state.error;
+  if (expectedSignal && state.child.signalCode === expectedSignal) return;
   assert.equal(state.child.exitCode, 0, state.stderr);
 }
 function send(state, command) { state.child.stdin.write(JSON.stringify(command) + '\n'); }
@@ -141,9 +142,14 @@ try {
   socket.send(JSON.stringify({ type: 'rpc_command', command: { type: 'prompt', text: prompt, mode: 'quick' } }));
   await until(() => events.find(event => event.type === 'agent_end'), 'WebSocket completion');
   assert.ok(events.filter(event => event.type === 'message_update').map(event => event.delta ?? '').join('').includes(marker));
+  if (process.platform === 'win32') {
+    // Windows terminates the Web server on SIGTERM; first stop its RPC child.
+    socket.send(JSON.stringify({ type: 'rpc_command', command: { type: 'shutdown' } }));
+    await until(() => events.find(event => event.type === 'connection_status' && event.status === 'disconnected'), 'WebSocket child shutdown');
+  }
   socket.close();
   web.child.kill('SIGTERM');
-  await exited(web);
+  await exited(web, process.platform === 'win32' ? 'SIGTERM' : undefined);
   console.log('PASS Web UI assets/authenticated WebSocket/prompt');
 
   for (const debug of [false, true]) {

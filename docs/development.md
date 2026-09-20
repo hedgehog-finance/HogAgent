@@ -18,6 +18,8 @@ The asset step also bundles the installed Marked, DOMPurify, KaTeX (including fo
 
 ## Test Commands
 
+Text files use LF via `.gitattributes`, including on Windows, so generated-source checks compare the same bytes on every platform. Keep this file when exporting HogAgent from the monorepo.
+
 ### FinanceGym research evaluation
 
 The [FinanceGym test conditions](../FinanceGym/README.md) describe a 20-question financial deep-research evaluation using `qwen3.8-flash` in `standard` mode. The directory contains the [final report](../FinanceGym/REPORT.md), [20 original questions and their answer reports](../FinanceGym/QUESTIONS.md), and JSONL question and answer exports. All evaluation documents and reports are in English and omit machine-specific filesystem paths. The final report states the completion results and official scoring status on a 100-point scale.

@@ -45,9 +45,12 @@ GitHub Actions runs install/check/build/README smoke on Linux, macOS and Windows
 - Start example subprocesses with the current Node.js executable; run TypeScript examples using native Node.js support. Remove misplaced trailing shebangs.
 - Wait for complete agent turns, including tool execution, and issue `steer`/`follow_up` only during an active turn. Use current file tools and event fields in examples.
 - Correct the package's compiled module entry point and remove documentation links that require sibling projects.
+- Preserve LF text files on Windows checkout so generated contract checks do not mistake CRLF conversion for stale source.
 
 The public snapshot contains source, vendored Pi, built-in Skills, tests, documentation and FinanceGym reports. Local editor state, dependencies, compiled output, user settings and credentials are excluded. Vendored Pi source is unchanged.
 
 ## Dependency status
 
 The clean installation reported 15 npm advisories (3 moderate, 12 high) in the existing dependency tree. Dependency upgrades and their compatibility review were not part of this source-publication change. Re-run `npm audit` for the current advisory details; the count can change independently of this release.
+
+The first cloud run exposed Windows CRLF conversion, a Homebrew framework Python symlink layout, and a download stream that could send newly appended bytes beyond Content-Length. Follow-up fixes preserve checkout line endings, validate the exact base interpreter link, and bound the download stream. These failures were addressed rather than skipped.

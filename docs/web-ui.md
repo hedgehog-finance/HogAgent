@@ -255,3 +255,5 @@ Settings are saved to `~/.hogagent/hogagent.json`.
 渲染器在首次预览时从本地构建产物加载 Marked、DOMPurify、KaTeX 和 ECharts，不依赖 CDN。HTML 会净化，公式关闭可信命令，图表移除可执行格式化器及外链配置。图片读取复用 `/api/download` 的 `resource` 可选参数：先验证原文档 Session、路径、回执与指纹，再检查图片确实出现在文档引用中、真实路径位于同一受管根，且不是 `.hedgehog` 内部文件；仅允许图片扩展名。不创建新回执或图片快照，引用图片显示其当前内容。
 
 回归测试：`test/web/markdown-document.test.ts` 检查图表尾注解析和图片路径边界，`test/web/delivery-download.test.ts` 检查实际下载认证及文档变更；构建后运行 `node test/browser/markdown-preview.mjs` 检查真实浏览器渲染、主题、响应式布局、恶意内容净化、超限提示和关闭时的资源清理。可通过 `HOGAGENT_BROWSER_EXECUTABLE` 指定 Chromium 路径，测试仅使用临时文档和模拟会话，不调用模型。
+
+Download streams are bounded to the announced Content-Length, including on persistent HTTP connections. If a file grows during a transfer, the appended bytes cannot corrupt the following response. Empty files complete without opening a stream. Receipt checks still reject files already changed before download.

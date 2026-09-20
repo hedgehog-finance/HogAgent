@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { ensurePythonEnvironment } from "../../src/tools/python-environment.ts";
 
 function findPython(): string | undefined {
@@ -97,6 +97,14 @@ describe("shared Python environment", () => {
         }
 
         if (process.platform !== "win32") {
+          const canonicalInterpreter = realpathSync(first.environment.python);
+          const aliasHome = join(systemDir, "framework-bin");
+          mkdirSync(aliasHome);
+          symlinkSync(canonicalInterpreter, join(aliasHome, basename(canonicalInterpreter)));
+          const venvConfig = join(first.environment.root, "pyvenv.cfg");
+          writeFileSync(venvConfig, readFileSync(venvConfig, "utf8").replace(/^home = .*$/m, `home = ${aliasHome}`));
+          expect((await ensurePythonEnvironment({ systemDir, configuredInterpreter: interpreter })).available).toBe(true);
+
           const versionDir = readdirSync(join(first.environment.root, "lib"))
             .find((entry) => entry.startsWith("python"));
           if (versionDir) {

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { constants, existsSync } from "node:fs";
 import { access, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { delimiter, isAbsolute, join, resolve } from "node:path";
+import { basename, delimiter, isAbsolute, join, resolve } from "node:path";
 import { isPathInside } from "../utils/path-safety.ts";
 import { normalizeEnvironment } from "../utils/environment.ts";
 
@@ -211,8 +211,16 @@ async function probeEnvironment(root: string, trustedInterpreter: string): Promi
     throw new Error("virtual environment must disable system site packages");
   }
   const configuredHome = config.get("home");
-  if (!configuredHome || !isAbsolute(configuredHome)
-    || !isPathInside(await realpath(configuredHome), trustedInterpreter)) {
+  let homeMatches = false;
+  if (configuredHome && isAbsolute(configuredHome)) {
+    homeMatches = isPathInside(await realpath(configuredHome), trustedInterpreter);
+    // Framework installations may keep an interpreter symlink in the configured home.
+    if (!homeMatches) {
+      homeMatches = await realpath(join(configuredHome, basename(trustedInterpreter)))
+        .then(executable => executable === trustedInterpreter, () => false);
+    }
+  }
+  if (!homeMatches) {
     throw new Error("virtual environment base interpreter does not match the configured interpreter");
   }
   const configuredExecutable = config.get("executable");

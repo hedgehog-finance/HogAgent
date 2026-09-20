@@ -86,3 +86,5 @@ npm run test:readme
 | [成果物](docs/artifact-manifest.md) | ファイル分類と配信 |
 | [Web UI](docs/web-ui.md) | 対話、設定、ファイルプレビュー |
 | [開発](docs/development.md) / [トラブルシューティング](docs/troubleshooting.md) | ビルド、テスト、診断 |
+
+Windows のチェックアウトは LF 改行を維持します。Python 環境は検証済みのフレームワーク実行ファイルのシンボリックリンクに対応し、ダウンロード中にファイルが増えても宣言済みの長さを超えて送信しません。

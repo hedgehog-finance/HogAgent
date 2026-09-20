@@ -86,3 +86,5 @@ npm run test:readme
 | [Artifacts](docs/artifact-manifest.md) | File classification and delivery |
 | [Web UI](docs/web-ui.md) | Conversations, settings and file previews |
 | [Development](docs/development.md) / [Troubleshooting](docs/troubleshooting.md) | Build, tests and diagnostics |
+
+Windows checkouts preserve LF line endings for reproducible builds. Python setup accepts validated framework interpreter symlinks; downloads remain bounded to their announced size if a file grows during transfer.

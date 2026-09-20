@@ -605,7 +605,11 @@ async function handleDownload(req: IncomingMessage, res: ServerResponse, workspa
       "Content-Length": fileStat.size.toString(),
       "Content-Disposition": disposition,
     });
-    createReadStream(resolvedPath).pipe(res);
+    // Never stream appended bytes past Content-Length onto a keep-alive connection.
+    if (fileStat.size === 0) { res.end(); return; }
+    createReadStream(resolvedPath, { start: 0, end: fileStat.size - 1 })
+      .on("error", () => res.destroy())
+      .pipe(res);
   } catch (err) {
     console.error("[download] Error:", err);
     if (!res.headersSent) {
