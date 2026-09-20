@@ -330,10 +330,9 @@ describe("config module", () => {
   });
 
   describe("getDefaultWorkspaceDir", () => {
-    it("should return path under ~/.hogagent/workspace", () => {
+    it("should honor HOGAGENT_USER_DIR for the default workspace", () => {
       const dir = getDefaultWorkspaceDir();
-      expect(dir).toContain(".hogagent");
-      expect(dir).toMatch(/workspace$/);
+      expect(dir).toBe(join(tempSystemDir, "workspace"));
     });
 
     it("should be an absolute path", () => {

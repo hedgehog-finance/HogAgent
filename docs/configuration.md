@@ -18,6 +18,33 @@ CLI args  >  --config file  >  llm-settings.json  >  workspace config  >  user c
 | Default workspace | Registered user mapping; `<HOGAGENT_USER_DIR>/workspace` on first use | `--workspace` CLI flag |
 | Project root | Auto-detected from HogAgent installation | `HOGAGENT_PROJECT_ROOT` env var |
 
+## Workspace Instructions and Upgrades
+
+Standalone workspace selection (CLI/RPC or Web UI) and `createHogAgent()` initialize `<workspace>/AGENTS.md` before reading instructions. A fresh `default` CLI/Web user is automatically registered at `<HOGAGENT_USER_DIR>/workspace`, normally `~/.hogagent/workspace`; `default` is a user key, not a required directory name. An explicit workspace or existing user mapping takes precedence. Other unknown named users still require `--workspace`. The programmatic default also honors `HOGAGENT_USER_DIR`.
+
+HogAgent ships its own template, currently **1.0.0**, compiled from `src/standalone-agents-template.ts`. Its content adapts general research, Skill, file, delegation and delivery principles; it contains no Gateway-only rules or supplemental business section. Neither generation, build nor runtime reads Gateway templates. Native execution/protocol rules remain in `SYSTEM.md` and `STANDALONE.md`.
+
+The generated file has this structure (the full template replaces the abbreviated content below):
+
+```markdown
+<!-- hogagent:managed-agents:start -->
+# HogAgent Workspace Rules
+version: 1.0.0
+
+...HogAgent-maintained rules...
+<!-- hogagent:managed-agents:end -->
+
+# User Rules / 用户自定义规则
+
+Always answer in Chinese unless I request another language.
+```
+
+Add personal rules **after the end marker**, under the final user heading. On startup or workspace selection, a newer bundled template replaces only the marked section; text outside it is preserved, including whitespace and line endings. Same-version files are not rewritten, and opening the workspace with an older HogAgent never downgrades its rules. An existing file without markers is preserved in full after the new template and user heading. Edits inside the managed section survive only until a template upgrade.
+
+Upgrade the installed code and rebuild, then restart CLI/Web UI (or recreate the programmatic instance). Template versions are independent of the package version; a package update with the same template version leaves the file untouched. Personal rule edits become visible at the next top-level execution boundary, while active executions and their children retain their existing instruction snapshot.
+
+Malformed markers or versions, unreadable files and non-regular files (including symlinks) cause an explicit startup error instead of replacement. Restore the markers/version or back up the file and remove both markers to import it as personal rules. Writes use a temporary file and atomic replacement; a failed replacement leaves the original intact. Under `HOGAGENT_GATEWAY_MANAGED=1`, this initializer does nothing: the host continues to own its instructions. Standalone access to a previously shared workspace treats an unmarked existing file as preserved user content.
+
 ### Windows paths and permissions
 
 Gateway and standalone HogAgent use the same `HOGAGENT_USER_DIR`, defaulting to the current OS user's `.hogagent` directory (`%USERPROFILE%\.hogagent` on Windows). The override must be an absolute native path. Drive paths, spaces, Chinese characters and UNC syntax are supported; `D:relative`, root-relative paths, `~`, literal `%USERPROFILE%` and surrounding quote characters are rejected. Expand variables in the launching shell first, and give both applications the same environment:
@@ -156,7 +183,7 @@ For `hogagent-web`, an explicit `--workspace` or `--default-workspace` updates t
 
 Gateway starts HogAgent with `--user <raw-user-id> --workspace <workspaceRoot>`. HogAgent registers this explicit workspace even when `HOGAGENT_GATEWAY_MANAGED=1`, updating only that user's `workspace_dir` and preserving its theme and other users' entries. The file belongs to HogAgent under `HOGAGENT_USER_DIR` (default `~/.hogagent`); Gateway does not write it directly. Subsequent standalone CLI/WebUI connections for the same user resolve the updated workspace and its `.hogagent/skills/`. Existing processes and saved session CWDs are not changed; reconnect WebUI and create a new session after switching workspaces.
 
-WebUI validates a user restored from its URL or browser storage before connecting. A user missing from this file is treated as stale browser state and automatically replaced with `default`. This fallback is WebUI-only; CLI and RPC callers must still register unknown users by supplying a workspace.
+WebUI validates a user restored from its URL or browser storage before connecting. A user missing from this file is treated as stale browser state and automatically replaced with `default`. This stale-user fallback is WebUI-only; standalone CLI and RPC automatically provision `default` but must still register other unknown users by supplying a workspace.
 
 ### `hogagent.json` (System-level settings)
 

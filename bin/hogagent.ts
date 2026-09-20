@@ -11,7 +11,7 @@
  *   --session <id>             Session identifier (auto-generated if not provided)
  *   --user <name>              User identifier for workspace resolution (default: default)
  *   --config <path>            Path to custom config file
- *   --workspace <path>         Workspace directory (default: resolved via user_settings.json)
+ *   --workspace <path>         Workspace directory (registered mapping; fresh default uses ~/.hogagent/workspace)
  *   --runtime-context-file <path>  Absolute process runtime context JSON path
  *   --debug                    Enable debug logging
  *   --help                     Show help
@@ -121,7 +121,7 @@ Options:
   --session <id>            Session identifier
   --user <name>             User identifier for workspace resolution (default: default)
   --config <path>           Path to custom config file (config source, does NOT override CLI args)
-  --workspace <path>        Workspace directory (default: resolved via user_settings.json)
+  --workspace <path>        Workspace directory (registered mapping; fresh default uses ~/.hogagent/workspace)
   --runtime-context-file <path>
                             Absolute JSON file used for process runtime context
   --debug                   Enable debug logging

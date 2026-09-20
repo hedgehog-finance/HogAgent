@@ -362,8 +362,12 @@ providers:
 missing, unreadable or empty rules fail explicitly rather than falling back to
 installation rules. Quick loads necessary rules without claiming unavailable tools.
 The HogAgent supplemental file is appended, never substituted; missing is allowed,
-but a read failure is fatal. Standalone use additionally loads STANDALONE.md and
-still permits an absent AGENTS file. Updates apply at the next top-level execution;
+but a read failure is fatal. Standalone use additionally loads STANDALONE.md.
+Workspace selection and agent creation initialize or upgrade AGENTS.md from
+HogAgent's compiled, versioned standalone template before snapshot loading. Only
+an older managed section is replaced; trailing user rules and legacy unmarked
+content are preserved. Gateway-managed initialization is excluded. The low-level
+snapshot reader still permits an absent standalone AGENTS file. Rule edits apply at the next top-level execution;
 sub-agents, compaction and long-task Harness reconstruction inherit its snapshot.
 
 `SYSTEM.md` describes capability-conditional behavior rather than assuming every
@@ -382,6 +386,10 @@ SYSTEM retains minimal native requirements. Gateway default/AGENTS.md owns commo
 business, delivery and sub-agent rules for all Agents. Runtime templates own each
 Agent's differences; HogAgent appends runtime/hogagent.md via .hogagent/hogagent.md.
 These are product templates, distinct from this repository's contributor instructions.
+Standalone templates are owned by `src/standalone-agents-template.ts`, with no
+Gateway source, build or runtime dependency. `src/workspace-instructions.ts`
+handles markers, version comparison and atomic replacement; see
+[workspace instruction upgrades](configuration.md#workspace-instructions-and-upgrades).
 DIY details arrive only through the supporting Adapter; native projectDir alone
 does not activate a managed project. All scopes exempt internal structured runs (including Work soft
 orchestration) from `delivery_decision`, honor exact requested filenames over

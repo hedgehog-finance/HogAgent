@@ -6,7 +6,7 @@ HogAgent 是针对金融投研优化的通用 AI Agent 引擎，通过模型推�
 
 - **官网：**[ciweiai.com/hogagent.html](https://ciweiai.com/hogagent.html)
 - **相关金融数据源和工具：**[Hedgehog Skills](https://github.com/hedgehog-finance/hedgehog-skills/)
-- **版本：**`1.2.4` · **许可证：**[GPL-3.0](LICENSE)
+- **版本：**`1.2.5` · **许可证：**[GPL-3.0](LICENSE)
 
 ## 主要能力
 
@@ -57,6 +57,8 @@ node dist/bin/hogagent.js --mode rpc --user default --session example --workspac
 ## 工作区与运行环境
 
 `--workspace` 指定用户工作区，用户映射保存在 `~/.hogagent/user_settings.json`。会话历史位于 `~/.hogagent/sessions/<用户目录>/`。工作区指令依次加载 `AGENTS.md` 和 `.hogagent/hogagent.md`，工作区 Skills 位于 `.hogagent/skills/`。
+
+独立运行时，首次使用的 `default` 用户无需指定工作区，默认在 `~/.hogagent/workspace/`（或 `<HOGAGENT_USER_DIR>/workspace/`）自动创建 `AGENTS.md`；已有映射则沿用。HogAgent 自带独立的版本化模板，构建和运行均不依赖 Gateway。升级后首次启动或重新选择工作区时自动更新较旧的模板区；个人规则请写在末尾的 `User Rules / 用户自定义规则` 下，升级会原样保留。旧的无标记文件也会完整保留在模板后面。详见[工作区规则与升级](docs/configuration.md#workspace-instructions-and-upgrades)。
 
 Shell 隔离由 `~/.hogagent/hogagent.json` 中的 `sandboxMode` 控制。在 macOS/Linux 上，`enabled` 要求系统沙箱可用，`fallback` 允许失败后无沙箱运行，默认值 `disabled` 不启用系统隔离。Windows Shell 无沙箱隔离。部署配置请参阅[工具权限说明](docs/tools.md)。
 

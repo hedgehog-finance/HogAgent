@@ -1,6 +1,6 @@
 {
   "name": "HogAgent",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "HogAgent - Unified AI Agent Engine",
   "license": "GPL-3.0",
   "type": "module",

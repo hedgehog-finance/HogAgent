@@ -30,6 +30,8 @@ const model = createServer(async (req, res) => {
   assert.equal(req.headers.authorization, 'Bearer readme-test-key');
   const request = JSON.parse(body);
   assert.ok(request.messages.length > 0);
+  const instructions = JSON.stringify(request.messages.filter(message => ['system', 'developer'].includes(message.role)));
+  assert.ok(instructions.includes('# HogAgent Workspace Rules'), 'Generated workspace instructions must reach the model');
   requests++;
   // Allow the queueing examples to send steer/follow_up during the active turn.
   await delay(100);
@@ -101,8 +103,18 @@ try {
   for (const args of [['dist/bin/hogagent.js', '--version'], ['dist/bin/hogagent.js', '--help'], ['dist/bin/hogagent-web.js', '--help']]) await exited(launch(args));
   console.log('PASS CLI help/version');
 
-  const rpc = launch(['dist/bin/hogagent.js', '--mode', 'rpc', '--user', 'default', '--session', 'readme-rpc', '--workspace', workspace]);
+  const programmaticWorkspace = join(runtime, 'programmatic workspace');
+  const programmatic = launch(['--input-type=module', '-e', `import { createHogAgent } from './dist/src/index.js'; const agent = await createHogAgent({ workspaceDir: ${JSON.stringify(programmaticWorkspace)} }); await agent.shutdown();`]);
+  await exited(programmatic);
+  assert.match(readFileSync(join(programmaticWorkspace, 'AGENTS.md'), 'utf8'), /# HogAgent Workspace Rules/);
+  console.log('PASS programmatic workspace AGENTS initialization');
+
+  // A fresh default user needs neither a mapping nor an explicit workspace.
+  const rpc = launch(['dist/bin/hogagent.js', '--mode', 'rpc', '--user', 'default', '--session', 'readme-rpc']);
   await until(() => rpc.events.find(event => event.type === 'ready'), 'RPC ready');
+  const defaultRules = readFileSync(join(system, 'workspace', 'AGENTS.md'), 'utf8');
+  assert.match(defaultRules, /# HogAgent Workspace Rules\nversion: \d+\.\d+\.\d+/);
+  assert.match(defaultRules, /# User Rules/);
   send(rpc, { type: 'get_state' });
   await until(() => rpc.events.find(event => event.type === 'state'), 'RPC state');
   send(rpc, { type: 'prompt', text: prompt, mode: 'quick' });
@@ -112,19 +124,26 @@ try {
   await exited(rpc);
   console.log('PASS RPC ready/state/prompt/shutdown');
 
+  const personalRules = '# Personal rules\r\nUse concise answers.  \r\n';
+  const agentsPath = join(workspace, 'AGENTS.md');
+  writeFileSync(agentsPath, personalRules);
   const interactive = launch(['dist/bin/hogagent.js', '--mode', 'interactive', '--user', 'default', '--workspace', workspace]);
   await until(() => interactive.stderr.includes('hogagent> '), 'interactive ready');
+  assert.ok(readFileSync(agentsPath, 'utf8').endsWith(personalRules));
   interactive.child.stdin.write(prompt + '\n');
   await until(() => interactive.stderr.includes(marker), 'interactive response');
   interactive.child.stdin.write('/exit\n');
   await exited(interactive);
   console.log('PASS interactive prompt/exit');
 
+  const currentRules = readFileSync(agentsPath, 'utf8');
+  writeFileSync(agentsPath, currentRules.replace(/^version: .*$/m, 'version: 0.1.0'));
   const reservation = createServer();
   const webPort = await listen(reservation);
   await new Promise(resolve => reservation.close(resolve));
   const web = launch(['dist/bin/hogagent-web.js', '--port', String(webPort), '--workspace', workspace]);
   await until(() => web.stdout.includes('is running at'), 'Web UI ready');
+  assert.equal(readFileSync(agentsPath, 'utf8'), currentRules, 'Web startup upgrades the template and preserves personal rules');
   const origin = `http://127.0.0.1:${webPort}`;
   const page = await (await fetch(origin)).text();
   assert.ok(page.includes(`v${manifest.version}`));
@@ -151,6 +170,7 @@ try {
   web.child.kill('SIGTERM');
   await exited(web, process.platform === 'win32' ? 'SIGTERM' : undefined);
   console.log('PASS Web UI assets/authenticated WebSocket/prompt');
+  console.log('PASS default AGENTS creation, legacy-rule preservation and Web startup upgrade');
 
   for (const debug of [false, true]) {
     const example = launch(['examples/basic-chat.ts', '--message', prompt, '--session', `readme-example-${debug}`, ...(debug ? ['--debug'] : [])]);

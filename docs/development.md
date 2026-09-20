@@ -18,6 +18,12 @@ The asset step also bundles the installed Marked, DOMPurify, KaTeX (including fo
 
 ## Test Commands
 
+### Standalone workspace instruction templates
+
+Edit `src/standalone-agents-template.ts` and increment `STANDALONE_AGENTS_VERSION` (a numeric `major.minor.patch`) whenever its rules change. This is a HogAgent-owned template compiled with the runtime; do not import or generate it from Gateway files. Keep host-specific rules in the host and native protocol requirements in `SYSTEM.md`/`STANDALONE.md`. `src/workspace-instructions.ts` preserves all text outside the managed markers, skips same/newer versions, and rejects malformed sections rather than overwriting them. Never rename its markers without a migration.
+
+Run `test/unit/workspace-instructions.test.ts`, `test/unit/user-workspace.test.ts` and `test/integration/standalone-build.test.ts` for preservation, upgrade, entry-point and standalone isolation coverage. After building, `npm run test:readme` exercises a fresh default CLI workspace, existing personal rules in an explicit workspace, and a Web UI startup that upgrades an older template.
+
 Text files use LF via `.gitattributes`, including on Windows, so generated-source checks compare the same bytes on every platform. Keep this file when exporting HogAgent from the monorepo.
 
 ### FinanceGym research evaluation

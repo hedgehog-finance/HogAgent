@@ -73,6 +73,8 @@ Browser-based interface for chat, session management, and model configuration.
 
 If a workspace option is supplied, WebUI updates the `default` user's mapping in `user_settings.json` and uses it for browser sessions. With no workspace option, the registered mapping is reused; first use falls back to `<HOGAGENT_USER_DIR>/workspace`.
 
+Standalone CLI/RPC use the same first-use behavior for `default`. Workspace selection and programmatic agent creation automatically create or upgrade workspace `AGENTS.md` from HogAgent's bundled template. Add personal rules after the managed section; they survive template upgrades. After updating and rebuilding HogAgent, restart its processes to apply a newer template. Gateway-managed runs retain host-owned initialization. See [workspace instructions and upgrades](configuration.md#workspace-instructions-and-upgrades).
+
 The listener remains on `127.0.0.1`. Each HTML page load receives a fresh seven-day WebUI JWT backed by `~/.hogagent/web-jwt-secret.key`; all API and WebSocket traffic is authenticated automatically by the bundled UI. Do not put a reverse proxy in front of this listener without preserving the exact allowed localhost Origin behavior.
 
 ---

@@ -6,7 +6,7 @@ HogAgent は金融リサーチに最適化された汎用 AI エージェント�
 
 - **公式サイト：**[ciweiai.com/hogagent.html](https://ciweiai.com/hogagent.html)
 - **金融データソースとツール：**[Hedgehog Skills](https://github.com/hedgehog-finance/hedgehog-skills/)
-- **バージョン：**`1.2.4` · **ライセンス：**[GPL-3.0](LICENSE)
+- **バージョン：**`1.2.5` · **ライセンス：**[GPL-3.0](LICENSE)
 
 ## 主な機能
 
@@ -57,6 +57,8 @@ Web UI または `~/.hogagent/llm-settings.json` でモデルを設定します�
 ## ワークスペースと実行環境
 
 `--workspace` でユーザーのワークスペースを指定します。対応関係は `~/.hogagent/user_settings.json`、会話履歴は `~/.hogagent/sessions/<ユーザーディレクトリ>/` に保存されます。指示は `AGENTS.md`、`.hogagent/hogagent.md` の順に読み込み、ワークスペースの Skills は `.hogagent/skills/` に配置します。
+
+スタンドアロンの CLI と Web UI は、初回の `default` ユーザーにワークスペースを指定しない場合、`~/.hogagent/workspace/`（または `<HOGAGENT_USER_DIR>/workspace/`）に `AGENTS.md` を自動作成します。既存の対応関係は維持します。テンプレートは HogAgent 自身がバージョン管理し、ビルド時も実行時も Gateway に依存しません。アップグレード後の起動・ワークスペース選択時に古いテンプレート部分だけを更新します。独自ルールは末尾の `User Rules` に追加してください。独自ルールとマーカーのない既存ファイルは保持されます。詳細は[ワークスペースのルールと更新](docs/configuration.md#workspace-instructions-and-upgrades)を参照してください。
 
 シェルの隔離は `~/.hogagent/hogagent.json` の `sandboxMode` で設定します。macOS/Linux では `enabled` が OS サンドボックスを必須とし、`fallback` は初期化失敗時の隔離なし実行を許可します。既定の `disabled` は OS 隔離を行いません。Windows のシェルも隔離なしで動作します。詳しくは[ツールの権限](docs/tools.md)を参照してください。
 

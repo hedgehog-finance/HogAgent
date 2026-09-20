@@ -25,3 +25,17 @@ it('checks and regenerates contracts in a checkout with no sibling projects', ()
   expect(readFileSync(generated, 'utf8')).toBe(expected);
   expect(run('--check').status).toBe(0);
 });
+
+it('initializes standalone workspace rules using only HogAgent modules, without any Gateway files', () => {
+  const root = mkdtempSync(join(tmpdir(), 'hogagent-standalone-rules-'));
+  roots.push(root);
+  for (const file of ['workspace-instructions.ts', 'standalone-agents-template.ts']) {
+    cpSync(join('src', file), join(root, file));
+  }
+  writeFileSync(join(root, 'package.json'), '{"type":"module"}');
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', "import { ensureStandaloneAgents } from './workspace-instructions.ts'; ensureStandaloneAgents('./workspace');"], {
+    cwd: root, encoding: 'utf8', env: { ...process.env, HOGAGENT_GATEWAY_MANAGED: '' },
+  });
+  expect(result.status, result.stderr).toBe(0);
+  expect(readFileSync(join(root, 'workspace', 'AGENTS.md'), 'utf8')).toContain('# HogAgent Workspace Rules');
+});

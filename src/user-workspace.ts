@@ -15,6 +15,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { createLogger } from "./utils/logger.ts";
 import { DEFAULT_THEME, THEME_NAMES } from "./themes.ts";
+import { ensureStandaloneAgents } from "./workspace-instructions.ts";
 
 const log = createLogger("user-workspace");
 
@@ -49,6 +50,7 @@ function ensureWorkspaceDir(dir: string): void {
     mkdirSync(dir, { recursive: true });
     log.info("Workspace directory created", { dir });
   }
+  ensureStandaloneAgents(dir);
 }
 
 // ─── Load / Save ───────────────────────────────────────────────────────────────
@@ -97,10 +99,15 @@ export function sanitizeUser(user: string): string {
  * Logic:
  *   1. user + explicitWorkspace → register mapping and return workspace
  *   2. user only (no explicitWorkspace) → lookup registered workspace
- *   3. user not found and no workspace → throw error
+ *   3. standalone default user → provision the default workspace
+ *   4. other user not found and no workspace → throw error
  */
 export function resolveWorkspace(user: string, explicitWorkspace?: string): string {
   const safeUser = sanitizeUser(user);
+
+  if (safeUser === "default" && process.env["HOGAGENT_GATEWAY_MANAGED"] !== "1") {
+    return ensureDefaultUser(explicitWorkspace);
+  }
 
   if (explicitWorkspace) {
     // Gateway and standalone launches share the mapping used by WebUI/CLI.
@@ -131,7 +138,7 @@ export function resolveWorkspace(user: string, explicitWorkspace?: string): stri
  *
  * Browser-local state can outlive a user mapping. WebUI treats that stale
  * selection as a request for the always-provisioned default user, while the
- * CLI/RPC workspace resolver remains strict for unknown users.
+ * CLI/RPC workspace resolver remains strict for unknown non-default users.
  */
 export function selectRegisteredWebUser(user: string): string {
   const safeUser = sanitizeUser(user);
@@ -147,7 +154,7 @@ export function registerWorkspace(user: string, dir: string): void {
 }
 
 /**
- * Ensure the Web UI's "default" user has a workspace.
+ * Ensure the standalone CLI/Web UI's "default" user has a workspace.
  *
  * An explicit workspace is authoritative for this server launch and updates
  * only the default user's mapping while preserving fields such as theme. When

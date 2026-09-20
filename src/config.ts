@@ -102,7 +102,7 @@ export function getUserConfigDir(workspaceDir: string): string {
 
 /** Default workspace directory when none is specified. */
 export function getDefaultWorkspaceDir(): string {
-  return join(homedir(), ".hogagent", "workspace");
+  return join(getSystemDir(), "workspace");
 }
 
 /** Native histories are user-scoped and independent of business workspace/archives. */

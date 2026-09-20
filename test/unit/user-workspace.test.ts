@@ -179,7 +179,24 @@ describe("user-workspace module", () => {
 
       expect(ensureDefaultUser()).toBe(expectedWorkspace);
       expect(existsSync(expectedWorkspace)).toBe(true);
+      expect(readFileSync(join(expectedWorkspace, "AGENTS.md"), "utf8")).toContain("# User Rules");
       expect(loadUserSettings().default?.workspace_dir).toBe(expectedWorkspace);
+    });
+
+    it("provisions a fresh CLI/RPC default user but still rejects unknown named users", () => {
+      const workspace = resolveWorkspace("default");
+      expect(workspace).toBe(join(systemDir, "workspace"));
+      expect(readFileSync(join(workspace, "AGENTS.md"), "utf8")).toContain("# HogAgent Workspace Rules");
+      expect(() => resolveWorkspace("unknown")).toThrow("not registered");
+    });
+
+    it("upgrades instructions in an existing mapping and keeps trailing user rules", () => {
+      const workspace = ensureDefaultUser(join(systemDir, "custom-default"));
+      const path = join(workspace, "AGENTS.md");
+      const original = readFileSync(path, "utf8");
+      writeFileSync(path, original.replace(/^version: .*$/m, "version: 0.1.0") + "Always answer in Chinese.\n");
+      expect(resolveWorkspace("default")).toBe(workspace);
+      expect(readFileSync(path, "utf8")).toBe(original + "Always answer in Chinese.\n");
     });
   });
 

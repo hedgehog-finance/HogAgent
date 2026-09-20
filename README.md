@@ -6,7 +6,7 @@ HogAgent is a general-purpose AI agent engine optimized for financial research. 
 
 - **Website:** [ciweiai.com/hogagent.html](https://ciweiai.com/hogagent.html)
 - **Financial data sources and tools:** [Hedgehog Skills](https://github.com/hedgehog-finance/hedgehog-skills/)
-- **Version:** `1.2.4` · **License:** [GPL-3.0](LICENSE)
+- **Version:** `1.2.5` · **License:** [GPL-3.0](LICENSE)
 
 ## Capabilities
 
@@ -57,6 +57,8 @@ Use the model available from your provider. Search settings live in `~/.hogagent
 ## Workspace and runtime
 
 `--workspace` selects the user's workspace; user mappings are stored in `~/.hogagent/user_settings.json`. Session history is stored in `~/.hogagent/sessions/<user-directory>/`. Workspace instructions come from `AGENTS.md` followed by `.hogagent/hogagent.md`; workspace Skills live in `.hogagent/skills/`.
+
+Standalone CLI and Web UI provision a fresh `default` user in `~/.hogagent/workspace/` (or `<HOGAGENT_USER_DIR>/workspace/`) when no workspace is supplied; existing mappings are reused. HogAgent creates `AGENTS.md` from its own versioned template, with no Gateway build or runtime dependency. Startup or workspace selection after an upgrade replaces older template sections. Add personal rules under the trailing `User Rules` heading: those rules, and any pre-existing unmarked file, are preserved. See [workspace instructions and upgrades](docs/configuration.md#workspace-instructions-and-upgrades).
 
 Shell isolation is controlled by `sandboxMode` in `~/.hogagent/hogagent.json`. On macOS/Linux, `enabled` requires the OS sandbox, `fallback` permits an unsandboxed fallback, and the default `disabled` runs without OS isolation. Windows shell execution is unsandboxed. See [tool permissions](docs/tools.md) before choosing a deployment configuration.
 

@@ -87,6 +87,7 @@ import {
   RuntimeContextManager,
 } from "./runtime-context.ts";
 import { AgentToolRegistry } from "./tool-registry.ts";
+import { ensureStandaloneAgents } from "./workspace-instructions.ts";
 
 const log = createLogger("core");
 
@@ -122,6 +123,7 @@ export async function createHogAgent(cliArgs?: CliArgs): Promise<HogAgentInstanc
 
   // 1. Load configuration
   const config = loadConfig(cliArgs);
+  ensureStandaloneAgents(config.workspaceDir);
 
   const runtimeContext = new RuntimeContextManager({
     workspaceDir: config.workspaceDir,

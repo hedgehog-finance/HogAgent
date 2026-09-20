@@ -1,8 +1,16 @@
 # Standalone release validation — 2026-09-20
 
-Target: https://github.com/hedgehog-finance/HogAgent.git, version `1.2.4`.
+Target: https://github.com/hedgehog-finance/HogAgent.git, version `1.2.5`.
 
-## Verified locally
+## 1.2.5 workspace template validation
+
+HogAgent now ships standalone workspace template `1.0.0` as a compiled module, with no Gateway template or asset dependency. CLI/RPC, Web UI and programmatic startup initialize `AGENTS.md`; upgrades preserve personal rules outside the managed section. Fresh standalone `default` users are provisioned automatically and the programmatic default honors `HOGAGENT_USER_DIR`.
+
+Local type checks, build and full regression passed. Focused tests additionally cover UTF-8 BOM/CRLF preservation, unmarked files, older/same/newer template versions, malformed markers and versions, read/replacement failures, detected concurrent edits and the managed-mode exclusion. An isolated subprocess test copies only the two HogAgent template modules into a directory without sibling projects and successfully creates workspace rules.
+
+The updated README smoke test passed programmatic initialization, a fresh default CLI workspace, an explicit workspace with existing personal rules, and Web UI upgrade from an older template. The loopback model fixture verifies that generated rules reach actual model requests. Interactive, RPC, authenticated WebSocket and all six examples passed. These 1.2.5 checks used the local fixture; the earlier real-provider checks below belong to 1.2.4.
+
+## Initial 1.2.4 publication validation
 
 Validation used macOS with Node.js `22.23.1` and npm `10.9.8`. A clean standalone directory contained only the HogAgent release files, with no sibling `contracts/`, Gateway or Web2 checkout and no reused `node_modules`.
 
