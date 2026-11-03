@@ -3025,3 +3025,9 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible, a:focus-vi
 .app-version { font-size: 10px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; }
 .settings-heading { flex-wrap: wrap; }
 .settings-heading .app-version { font-size: 11px; }
+
+.attachment-menu { position: relative; }
+.attachment-menu summary { list-style: none; cursor: pointer; }
+.attachment-menu > div { position: absolute; bottom: 100%; left: 0; z-index: 30; display: flex; flex-direction: column; min-width: 220px; padding: 8px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #ccc); border-radius: 8px; }
+.file-chip:has(img), .file-chip:has(video) { flex-wrap: wrap; max-width: 260px; }
+.file-chip small { font-size: 11px; }

@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { mediaScope, activeMediaScopes, mediaMessage, getMediaMessages, isUnboundMediaMessage, retryableMediaMessage, modelMediaCapabilities } from "../media/context.ts";
+import { mediaAttachments, assertMediaCapabilities, freezeMediaAttachments } from "../media/media-input.ts";
 import { beginInstructionSnapshot, endInstructionSnapshot } from "../instruction-snapshot.ts";
 import { resolveGatewayProject } from "../gateway-project.ts";
 /**
@@ -432,9 +435,13 @@ export function createPromptHandlers(deps: HandlerDeps, state: HandlerMutableSta
 
   // ─── RPC Handlers ─────────────────────────────────────────────────────
 
+  // Harness queues survive model failures. Controls belong to one Prompt Run,
+  // so any unconsumed entries must be cleared before admitting another Prompt.
+  let controlledPromptRunId: string | undefined;
+
   async function onPrompt(command: RpcCommand): Promise<void> {
     // Validate routing fields before switching sessions or clearing pending work.
-    const text = typeof command.text === "string" ? command.text : "";
+    const text = typeof command.text === "string" && command.text.trim() ? command.text : Array.isArray(command.attachments) && command.attachments.length ? "请分析所附媒体。" : "";
     const requestedSessionId = command.session_id;
     const invalidInput = !text.trim()
       ? "prompt command requires a non-empty 'text' string"
@@ -485,6 +492,21 @@ export function createPromptHandlers(deps: HandlerDeps, state: HandlerMutableSta
     // emit several internal agent_end events and execute many Harness turns; none
     // of those events owns cleanup. Only this finally boundary does.
     try {
+      const files = await freezeMediaAttachments(command.attachments, config.workspaceDir, config.projectDir);
+      assertMediaCapabilities(files, modelMediaCapabilities(harnessRef.current.getModel()));
+      if ((command.mode ?? deps.currentModeRef.value) === "long_task" && deps.auditModelObjRef.value) assertMediaCapabilities(files, modelMediaCapabilities(deps.auditModelObjRef.value));
+      const branch = await deps.sessionRef.current.getBranch();
+      const context = { messages: branch.flatMap(entry => entry.type === "message" ? [entry.message] : []) };
+      const previous = getMediaMessages(context.messages).filter(message => !isUnboundMediaMessage(message) && (!message.details?.cue || context.messages.some(item => item.role === 'user' && JSON.stringify(item.content).includes(message.details!.cue!))));
+      const retry = files.length ? retryableMediaMessage(context.messages, files, text) : undefined;
+      const incoming = files.length ? retry ?? mediaMessage(files, undefined, text) : undefined;
+      const scope = { workspace: config.workspaceDir, projectDir: config.projectDir, messages: getMediaMessages([...previous, ...(incoming ? [incoming] : [])]), consumedCues: new Set(previous.flatMap(message => message.details?.cue ? [message.details.cue] : [])), ownerHarness: harnessRef.current, pending: incoming };
+      const allMedia = scope.messages.flatMap(message => message.details?.attachments ?? []);
+      assertMediaCapabilities(allMedia, modelMediaCapabilities(harnessRef.current.getModel()));
+      if ((command.mode ?? deps.currentModeRef.value) === "long_task" && deps.auditModelObjRef.value) assertMediaCapabilities(allMedia, modelMediaCapabilities(deps.auditModelObjRef.value));
+      if (incoming && !retry) await harnessRef.current.appendMessage(incoming);
+      activeMediaScopes.set(harnessRef.current, scope);
+      return await mediaScope.run(scope, async () => {
       beginInstructionSnapshot(config.workspaceDir);
       // Initialize activity logger on first prompt
       deps.activityLoggerRef.current.init(config.sessionId, text);
@@ -635,6 +657,7 @@ export function createPromptHandlers(deps: HandlerDeps, state: HandlerMutableSta
         }
         await promptWithContextCapacity(text);
       }
+      });
     } catch (err) {
       if (err instanceof OrchestrationAbortedError) {
         // A Long Task orchestration was aborted — unwind cleanly without an
@@ -683,29 +706,63 @@ export function createPromptHandlers(deps: HandlerDeps, state: HandlerMutableSta
     } finally {
       // Abort only requests termination; the original Prompt Run clears its own
       // context after the Harness, final audit, and delivery paths unwind.
+      activeMediaScopes.delete(harnessRef.current);
+      if (controlledPromptRunId === promptRunId) {
+        controlledPromptRunId = undefined;
+        try {
+          await harnessRef.current.abort();
+        } catch (error) {
+          // abort clears the queues synchronously, before invoking hooks.
+          log.warn("Prompt control queue cleanup hook failed", { error: String(error) });
+        }
+      }
       deps.runtimeContext.endPromptRun(promptRunId);
       endInstructionSnapshot(config.workspaceDir);
     }
   }
 
+  async function controlMedia(command: RpcCommand, text: string): Promise<string> {
+    const params = command.params as Record<string, unknown> | undefined;
+    const files = await freezeMediaAttachments(command.attachments ?? params?.attachments, config.workspaceDir, config.projectDir);
+    if (!files.length) return text;
+    assertMediaCapabilities(files, modelMediaCapabilities(harnessRef.current.getModel()));
+    if (deps.currentModeRef.value === "long_task" && deps.auditModelObjRef.value) assertMediaCapabilities(files, modelMediaCapabilities(deps.auditModelObjRef.value));
+    const scope = activeMediaScopes.get(harnessRef.current);
+    if (!scope) throw new Error("当前轮次不可追加媒体");
+    const cue = "hogagent-media-control:" + randomUUID();
+    const message = mediaMessage(files, cue, text);
+    await harnessRef.current.appendMessage(message);
+    scope.messages.push(message);
+    return text + "\n" + cue;
+  }
+
   async function onSteer(command: RpcCommand): Promise<void> {
+    const reject = (error: string) => emitEvent({ type: "error", error, code: "CONFLICT", command_type: "steer" });
     if (state.switchedSession) {
-      emitEvent({ type: "error", error: "Currently in read-only historical session mode. Please click \"New Session\" before sending messages" });
+      reject("Steering requires an active writable session");
       return;
     }
     // Support text at top-level or nested in params (sendCommand generic path uses params nesting)
     const params = command.params as Record<string, unknown> | undefined;
-    const text = (command.text as string | undefined) || (params?.['text'] as string | undefined);
+    const attachments = command.attachments ?? params?.attachments;
+    const text = (command.text as string | undefined) || (params?.['text'] as string | undefined) || (Array.isArray(attachments) && attachments.some(file => file?.kind === 'image' || file?.kind === 'video') ? '请分析所附媒体。' : undefined);
     if (!text) {
-      emitEvent({ type: "error", error: "steer command requires 'text' field" });
+      reject("steer command requires 'text' field");
+      return;
+    }
+    const snapshot = deps.runtimeContext.getSnapshot();
+    if (isAbortRequested() || !snapshot.current_run || (command.expected_run_id !== undefined && command.expected_run_id !== snapshot.current_run.run_id)
+      || (command.session_id !== undefined && command.session_id !== snapshot.session?.session_id)) {
+      reject("The active Session or Run changed; steering was not sent");
       return;
     }
     try {
-      await harnessRef.current.steer(text);
-      emitEvent({ type: "steer_queued" });
+      controlledPromptRunId = snapshot.current_run.prompt_run_id;
+      await harnessRef.current.steer(await controlMedia(command, text));
+      emitEvent({ type: "steer_queued", command_type: "steer" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      emitEvent({ type: "error", error: msg });
+      emitEvent({ type: "error", error: msg, command_type: "steer", ...((err as { code?: string })?.code === "invalid_state" ? { code: "CONFLICT" } : {}) });
     }
   }
 
@@ -716,13 +773,20 @@ export function createPromptHandlers(deps: HandlerDeps, state: HandlerMutableSta
     }
     // Support text at top-level or nested in params (sendCommand generic path uses params nesting)
     const params = command.params as Record<string, unknown> | undefined;
-    const text = (command.text as string | undefined) || (params?.['text'] as string | undefined);
+    const attachments = command.attachments ?? params?.attachments;
+    const text = (command.text as string | undefined) || (params?.['text'] as string | undefined) || (Array.isArray(attachments) && attachments.some(file => file?.kind === 'image' || file?.kind === 'video') ? '请分析所附媒体。' : undefined);
     if (!text) {
       emitEvent({ type: "error", error: "follow_up command requires 'text' field" });
       return;
     }
+    const run = deps.runtimeContext.getSnapshot().current_run;
+    if (!run || isAbortRequested()) {
+      emitEvent({ type: "error", command_type: "follow_up", error: "Follow-up requires an active Prompt Run" });
+      return;
+    }
     try {
-      await harnessRef.current.followUp(text);
+      controlledPromptRunId = run.prompt_run_id;
+      await harnessRef.current.followUp(await controlMedia(command, text));
       emitEvent({ type: "follow_up_queued" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

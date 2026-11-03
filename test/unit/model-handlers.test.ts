@@ -41,6 +41,7 @@ function createHandlers() {
 
 describe("model handler compatibility", () => {
   beforeEach(() => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("", { status: 404 }));
     userDir = mkdtempSync(join(tmpdir(), "hogagent-model-handler-"));
     mkdirSync(userDir, { recursive: true });
     process.env["HOGAGENT_USER_DIR"] = userDir;

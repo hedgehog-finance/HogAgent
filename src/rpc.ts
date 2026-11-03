@@ -103,9 +103,9 @@ async function dispatchCommand(command: RpcCommand, queuedAbortEpoch = abortQueu
         error: errorMessage,
         command_type: command.type,
       });
-      // For conversation commands, emit termination event so consumers (Gateway/App)
-      // can reset busy state — the error event alone may not trigger a state reset
-      if (command.type === "prompt" || command.type === "steer" || command.type === "follow_up") {
+      // Only the owning Prompt may end the run. Failed controls must not
+      // terminate an unrelated in-progress execution.
+      if (command.type === "prompt") {
         emitEvent({ type: "agent_end", reason: "error", error: errorMessage });
       }
     }
@@ -146,6 +146,7 @@ export function enqueueCommand(command: RpcCommand): void {
         type: "error",
         error: `${command.type}.session_id must be a non-empty string when provided`,
         command_type: command.type,
+        request_id: command.request_id, code: "CONFLICT",
       });
       return;
     }
@@ -155,6 +156,7 @@ export function enqueueCommand(command: RpcCommand): void {
         type: "error",
         error: `${command.type} is unavailable while a session transition is in progress`,
         command_type: command.type,
+        request_id: command.request_id, code: "CONFLICT",
         ...(requestedSessionId ? { session_id: requestedSessionId } : {}),
       });
       return;
@@ -172,6 +174,7 @@ export function enqueueCommand(command: RpcCommand): void {
         type: "error",
         error: `${command.type} targets inactive session '${requestedSessionId}'`,
         command_type: command.type,
+        request_id: command.request_id, code: "CONFLICT",
         session_id: requestedSessionId,
       });
       return;
@@ -196,6 +199,7 @@ export function enqueueCommand(command: RpcCommand): void {
         type: "error",
         error: `${command.type} is unavailable while context compaction is in progress`,
         command_type: command.type,
+        request_id: command.request_id, code: "CONFLICT",
       });
       return;
     }

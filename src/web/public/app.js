@@ -297,6 +297,8 @@ const closeSkillConfigBtn = $("close-skill-config");
 const saveSkillConfigBtn = $("save-skill-config");
 const uploadBtn = $("upload-btn");
 const fileInput = $("file-input");
+const mediaInput = $("media-input");
+const mediaBtn = $("media-btn");
 const uploadPreview = $("upload-preview");
 const dragOverlay = $("drag-overlay");
 const skillBtn = $("skill-btn");
@@ -375,6 +377,8 @@ const state = {
   sidebarCollapsed: false,
   skillsData: [],       // Full skill info from server
   providerModels: {},   // Cache: provider → model list
+  media: { image: false, video: false },
+  lastMediaSend: null,
   uploadedFiles: [],    // Array of { path, name, size }
   selectedSkill: null,  // { skill: string, theme?: string } or null
   conversationMode: "standard",  // "quick" | "standard" | "long_task"
@@ -519,7 +523,7 @@ function renderMarkdown(text) {
 function updateActivityControls() {
   const transitioning = state.sessionTransition !== null;
   newSessionBtn.disabled = !state.connected || state.awaitingNewSession || state.pendingNewSessionUI || transitioning;
-  sendBtn.disabled = !state.connected || state.isBusy || state.isCompacting || transitioning;
+  sendBtn.disabled = !state.connected || state.isBusy || state.isCompacting || transitioning || Boolean(mediaError());
   abortBtn.disabled = !state.isBusy || state.isCompacting;
   compactBtn.disabled = !state.connected || state.isBusy || state.isCompacting || state.isReadOnly;
   if (uploadBtn) uploadBtn.disabled = !state.connected || state.isBusy || state.isCompacting || transitioning;
@@ -530,6 +534,8 @@ function updateActivityControls() {
 function setConnectionStatus(status) {
   state.connected = status === "connected";
   if (!state.connected) {
+    state.media = { image: false, video: false };
+    updateMediaControls();
     state.isCompacting = false;
     resetPendingSettings(t('chat.disconnected'));
     closeComposerModelPanel();
@@ -1186,27 +1192,68 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-async function uploadFiles(files) {
+function mediaMime(file) {
+  return file.type || ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', mp4: 'video/mp4', mov: 'video/quicktime' })[file.name.split('.').pop().toLowerCase()] || 'application/octet-stream';
+}
+function mediaError(files = state.uploadedFiles) {
+  if (files.some(file => ['pending', 'uploading', 'error'].includes(file.status))) return '请等待附件上传完成，或重试失败附件';
+  const unsupported = files.find(file => (file.kind === 'image' || file.kind === 'video') && !state.media[file.kind]);
+  return unsupported ? '当前 Agent 或模型不支持该媒体，请切换模型或改为普通文件；草稿已保留。' : '';
+}
+function updateMediaControls() {
+  if (mediaBtn) { mediaBtn.disabled = !state.media.image && !state.media.video; mediaBtn.title = (state.media.image ? '图片可用' : '图片不支持') + '；' + (state.media.video ? '视频可用' : '视频不支持'); }
+  if (mediaInput) mediaInput.accept = [state.media.image ? '.jpg,.jpeg,.png,.webp' : '', state.media.video ? '.mp4,.mov' : ''].filter(Boolean).join(',');
+  updateActivityControls();
+}
+async function uploadOne(entry) {
+  if (!state.uploadedFiles.includes(entry)) return;
+  entry.status = 'uploading'; renderUploadPreview();
+  const formData = new FormData(); formData.append('file', entry.sourceFile);
+  try {
+    const response = await authenticatedFetch('/api/upload?user=' + encodeURIComponent(state.user), { method: 'POST', body: formData });
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || '上传失败');
+    Object.assign(entry, result, { status: 'ready' });
+  } catch (error) { entry.status = 'error'; entry.error = error.message; }
+  renderUploadPreview();
+}
+async function uploadFiles(files, intent = 'file') {
+  const entries = [];
   for (const file of files) {
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      const resp = await authenticatedFetch(`/api/upload?user=${encodeURIComponent(state.user)}`, { method: "POST", body: formData });
-      const result = await resp.json();
-      if (result.error) {
-        addStatusMessage(`${t('common.uploadFailed')}: ${result.error}`);
-        continue;
-      }
-      state.uploadedFiles.push(result);
-      renderUploadPreview();
-    } catch (err) {
-      addStatusMessage(`${t('common.uploadFailed')}: ${file.name}`);
-    }
+    if (state.uploadedFiles.length >= 10) { addStatusMessage('每条消息最多添加 10 个附件'); break; }
+    const mimeType = mediaMime(file);
+    const kind = intent === 'file' ? 'file' : mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'file';
+    if (intent === 'media' && kind === 'file') { addStatusMessage('请选择图片或视频'); continue; }
+    if (kind !== 'file' && (!['image/jpeg','image/png','image/webp','video/mp4','video/quicktime'].includes(mimeType) || file.size > (kind === 'image' ? 5_000_000 : 7_000_000))) { addStatusMessage('媒体格式不支持或超过大小限制，请使用普通文件入口'); continue; }
+    const entry = { id: crypto.randomUUID(), name: file.name, size: file.size, mimeType, kind, sourceFile: file, status: 'pending', preview: kind === 'file' ? null : URL.createObjectURL(file) };
+    state.uploadedFiles.push(entry);
+    entries.push(entry);
+  }
+  // Reserve the entire batch before awaiting I/O: sending must never consume
+  // only its first uploaded file while the remaining files are still invisible.
+  renderUploadPreview();
+  for (const entry of entries) await uploadOne(entry);
+}
+
+function renderMessageMedia(messageId, files, sessionId = state.sessionId) {
+  const bubble = [...messagesContainer.querySelectorAll('[data-id]')].find(node => node.dataset.id === messageId);
+  if (!bubble) return;
+  for (const file of files || []) {
+    if (file.kind !== 'image' && file.kind !== 'video') continue;
+    const caption = document.createElement('small'); caption.textContent = (file.kind === 'image' ? '图片' : '视频') + ' · ' + file.name; bubble.appendChild(caption);
+    const preview = document.createElement(file.kind === 'image' ? 'img' : 'video'); preview.style.maxWidth = '100%'; preview.style.maxHeight = '240px';
+    if (file.kind === 'video') { preview.controls = true; preview.preload = 'metadata'; }
+    preview.onerror = () => { caption.textContent += '（无法预览，可通过附件下载）'; };
+    bubble.appendChild(preview);
+    const local = state.uploadedFiles.find(item => item.path === file.path)?.preview;
+    if (local) preview.src = local;
+    else void authenticatedFetch('/api/download?' + new URLSearchParams({ session: sessionId, path: file.path, user: state.user })).then(response => { if (!response.ok) throw new Error('无法读取附件'); return response.blob(); }).then(blob => { if (preview.isConnected) preview.src = URL.createObjectURL(blob); }).catch(() => { caption.textContent += '（文件暂不可用）'; });
   }
 }
 
 function renderUploadPreview() {
   if (!uploadPreview) return;
+  updateActivityControls();
   uploadPreview.innerHTML = "";
   if (state.uploadedFiles.length === 0) {
     uploadPreview.style.display = "none";
@@ -1216,10 +1263,20 @@ function renderUploadPreview() {
   for (const f of state.uploadedFiles) {
     const chip = createElement("span", "file-chip",
       `${escapeHtml(f.name)} <span class="file-size">(${formatFileSize(f.size)})</span>`);
+    const purpose = document.createElement('small'); purpose.textContent = f.kind === 'image' ? ' 图片 · 发送给模型' : f.kind === 'video' ? ' 视频 · 发送给模型' : ' 普通文件'; chip.appendChild(purpose);
+    if (f.preview && f.kind !== 'file') {
+      const preview = document.createElement(f.kind === 'video' ? 'video' : 'img'); preview.src = f.preview; preview.style.maxWidth = '140px'; preview.style.maxHeight = '100px';
+      if (f.kind === 'video') { preview.controls = true; preview.preload = 'metadata'; preview.onerror = () => { purpose.textContent += '（无法预览，可继续发送）'; }; }
+      chip.prepend(preview);
+    }
+    if (f.kind === 'image' || f.kind === 'video') { const convert = document.createElement('button'); convert.textContent = '改为普通文件'; convert.onclick = () => { f.kind = 'file'; if (f.preview) URL.revokeObjectURL(f.preview); f.preview = null; renderUploadPreview(); }; chip.appendChild(convert); }
+    if (f.status === 'error') { const retry = document.createElement('button'); retry.textContent = '上传失败，重试'; retry.onclick = () => uploadOne(f); chip.appendChild(retry); }
+    if (f.status === 'uploading' || f.status === 'pending') purpose.textContent += f.status === 'pending' ? '（待上传）' : '（上传中）';
     const removeBtn = createElement("button", "file-chip-remove", "×");
     removeBtn.dataset.path = f.path;
     removeBtn.addEventListener("click", () => {
-      state.uploadedFiles = state.uploadedFiles.filter(x => x.path !== f.path);
+      state.uploadedFiles = state.uploadedFiles.filter(x => x !== f);
+      if (f.preview) URL.revokeObjectURL(f.preview);
       renderUploadPreview();
     });
     chip.appendChild(removeBtn);
@@ -1244,6 +1301,16 @@ messagesContainer.addEventListener("drop", (e) => {
   if (e.dataTransfer?.files?.length) uploadFiles(e.dataTransfer.files);
 });
 
+if (mediaBtn) mediaBtn.addEventListener('click', () => mediaInput?.click());
+if (mediaInput) mediaInput.addEventListener('change', () => { if (mediaInput.files?.length) uploadFiles(mediaInput.files, 'media'); mediaInput.value = ''; });
+messageInput.addEventListener('paste', event => {
+  const files = Array.from(event.clipboardData?.files || []);
+  if (!files.length) return;
+  event.preventDefault();
+  const text = event.clipboardData.getData('text/plain');
+  if (text) { messageInput.setRangeText(text, messageInput.selectionStart, messageInput.selectionEnd, 'end'); messageInput.dispatchEvent(new Event('input', { bubbles: true })); }
+  void uploadFiles(files, 'paste');
+});
 // Upload button + file input
 if (uploadBtn) {
   uploadBtn.addEventListener("click", () => { if (fileInput) fileInput.click(); });
@@ -2312,24 +2379,19 @@ function sendCommand(command) {
 }
 
 function createPendingSend(text) {
-  const files = state.uploadedFiles.map(file => Object.freeze({ ...file }));
+  const files = state.uploadedFiles.map(({ path, name, size, mimeType, kind }) => Object.freeze({ path, name, size, mimeType, kind: kind || "file" }));
   const mode = ["quick", "standard", "long_task"].includes(state.conversationMode)
     ? state.conversationMode
     : "standard";
   return Object.freeze({ text, files: Object.freeze(files), mode });
 }
 
-function rejectQuickAttachments(files = state.uploadedFiles) {
-  if (state.conversationMode !== "quick" || files.length === 0) return false;
-  addStatusMessage(t('chat.quickAttachmentsRequireStandard'));
-  return true;
-}
-
 function sendPrompt(text) {
   // Allow sending with files even if text is empty.
   if (!text.trim() && state.uploadedFiles.length === 0) return;
   if (state.sessionTransition !== null) return;
-  if (rejectQuickAttachments()) return;
+  const error = mediaError();
+  if (error) { addStatusMessage(error); return; }
 
   const pending = createPendingSend(text);
   clearWelcomeMessage();
@@ -2374,10 +2436,14 @@ function sendPrompt(text) {
 
 function doSendPrompt(pending) {
   const { text, files, mode } = pending;
+  const error = mediaError(files);
+  if (error) { addStatusMessage(error); return; }
+  state.lastMediaSend = { ...pending, sessionId: state.sessionId };
+  const ordinaryFiles = files.filter(file => !file.kind || file.kind === "file");
   // Build final prompt text with file paths
   let finalText = text;
-  if (files.length > 0) {
-    const filePaths = files.map(f => f.path).join(", ");
+  if (ordinaryFiles.length > 0) {
+    const filePaths = ordinaryFiles.map(f => f.path).join(", ");
     finalText = `[attached files: ${filePaths}]\n${text}`;
   }
 
@@ -2388,10 +2454,12 @@ function doSendPrompt(pending) {
     const attachmentLine = `\n\n📎 ${fileNames}`;
     displayText = displayText ? displayText + attachmentLine : `📎 ${fileNames}`;
   }
-  addMessage("user", displayText);
+  const messageId = addMessage("user", displayText);
+  renderMessageMedia(messageId, files);
 
   // Preserve the mode selected at the original send boundary.
-  sendCommand({ type: "prompt", text: finalText, mode });
+  const mediaFiles = files.filter(file => file.kind === "image" || file.kind === "video");
+  sendCommand({ type: "prompt", text: finalText, mode, ...(mediaFiles.length ? { attachments: mediaFiles } : {}) });
 
   // Consume only the snapshot that was sent. Draft text or attachments added
   // while a Session transition was resolving belong to the next message.
@@ -2883,6 +2951,7 @@ function handleRpcEvent(event) {
   if (handleComposerModels(event)) return;
   switch (event.type) {
     case "ready": {
+      if (event.capabilities?.media) { state.media = event.capabilities.media; updateMediaControls(); }
       // A reconnecting socket owns a short-lived child until the server accepts
       // or rejects the stable connection ID. Its ready event is provisional and
       // must not replace the stored ID or cancel full-page history recovery.
@@ -2911,6 +2980,7 @@ function handleRpcEvent(event) {
       }
       // End the transition: new session is ready — clear old UI
       if (state.pendingNewSessionUI && !provisionalReconnect) {
+        state.lastMediaSend = null;
         state.pendingNewSessionUI = false;
         state.followLatestMessages = true;
         messagesContainer.replaceChildren(welcomeMessage);
@@ -3045,6 +3115,7 @@ function handleRpcEvent(event) {
     }
 
     case "state":
+      state.media = event.capabilities?.media || { image: false, video: false }; updateMediaControls();
       state.currentModel = event.model;
       state.currentThinkingLevel = event.thinking_level || state.currentThinkingLevel;
       if (event.provider) {
@@ -3287,6 +3358,14 @@ function handleRpcEvent(event) {
       break;
 
     case "error": {
+      if (event.session_id && state.sessionId && event.session_id !== state.sessionId) break;
+      if (state.lastMediaSend && state.lastMediaSend.sessionId === state.sessionId && !state.sessionTransition
+        && (!event.session_id || event.session_id === state.sessionId)
+        && !event.target && (!event.command_type || event.command_type === 'prompt')) {
+        if (!messageInput.value) messageInput.value = state.lastMediaSend.text;
+        for (const file of state.lastMediaSend.files) if (!state.uploadedFiles.some(current => current.path === file.path)) state.uploadedFiles.push({ ...file, status: 'ready' });
+        state.lastMediaSend = null; renderUploadPreview();
+      }
       if (event.target === "audit" && event.provider && event.provider !== auditProviderSelect?.value) break;
       if (event.target === "main" && event.provider && event.provider !== providerSelect?.value) break;
       const errorText = event.error || event.message || t('common.unknownError');
@@ -3364,7 +3443,7 @@ function handleRpcEvent(event) {
       break;
     }
 
-    case "model_changed": state.currentModel = event.model_id; updateIndicators(); break;
+    case "model_changed": state.media = event.media || { image: false, video: false }; updateMediaControls(); state.currentModel = event.model_id; updateIndicators(); break;
     case "thinking_level_changed": state.currentThinkingLevel = event.level; updateIndicators(); break;
     case "session_created": {
       // Remove "creating session..." status message
@@ -3383,6 +3462,7 @@ function handleRpcEvent(event) {
       break;
     }
     case "session_switched": {
+      if (event.session_id !== state.sessionId) state.lastMediaSend = null;
       // Clear current chat and load session history
       state.followLatestMessages = true;
       messagesContainer.innerHTML = "";
@@ -3452,7 +3532,8 @@ function handleRpcEvent(event) {
           if (body) body.textContent = msg.content;
           messagesContainer.appendChild(thinkEl);
         } else {
-          addMessage(msg.role, msg.content);
+          const messageId = addMessage(msg.role, msg.content);
+          if (msg.attachments) renderMessageMedia(messageId, msg.attachments, event.session_id);
         }
       }
       // Render the delivery records returned with session history. Filename
@@ -3505,6 +3586,8 @@ function handleRpcEvent(event) {
       requestRefreshHistoryReplay();
       break;
     case "agent_end":
+      if (event.session_id && state.sessionId && event.session_id !== state.sessionId) break;
+      if (event.reason !== "error" && event.reason !== "context_compaction_failed") state.lastMediaSend = null;
       state.isBusy = event._web_busy === true;
       if (event.reason === "unexpected_exit" || event.reason === "context_compaction_failed") {
         state.isCompacting = false;
@@ -3542,6 +3625,7 @@ function handleRpcEvent(event) {
       break;
     }
     case "settings_saved": {
+      state.media = event.media || { image: false, video: false }; updateMediaControls();
       saveSettingsBtn.disabled = false;
       const fromComposer = state.pendingLlmSettings?.source === 'composer';
       // Backend confirmation — only show after actual save succeeds
@@ -3947,7 +4031,6 @@ function sendCurrentMessage() {
   // Slash command interception
   if (text.trim().startsWith('/')) {
     const parsed = parseSlashCommand(text);
-    if (parsed?.cmd === 'new' && parsed.rest && rejectQuickAttachments()) return;
     if (parsed && executeSlashCommand(parsed)) {
       messageInput.value = '';
       messageInput.style.height = 'auto';

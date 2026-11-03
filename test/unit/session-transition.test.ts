@@ -34,6 +34,7 @@ import { AgentToolRegistry } from "../../src/tool-registry.ts";
 import { JsonlSessionStorage } from "../../src/vendor/agent/harness/session/jsonl-storage.ts";
 import { Session } from "../../src/vendor/agent/harness/session/session.ts";
 import { InMemorySessionStorage } from "../../src/vendor/agent/harness/session/memory-storage.ts";
+import { mediaMessage } from "../../src/media/context.ts";
 
 function createFixture(workspaceDir: string) {
   vi.stubEnv("HOGAGENT_USER_DIR", join(workspaceDir, ".native"));
@@ -171,6 +172,45 @@ describe("session transition transaction", () => {
         expect(messages).toContainEqual({ role: "assistant", content: text, type: "thinking" });
       }
       expect(fixture.oldHarness.abort).not.toHaveBeenCalled();
+    } finally { rmSync(workspaceDir, { recursive: true, force: true }); }
+  });
+
+  it.each([false, true])("restores media on its original turn with delayed bindings and compaction=%s", async (compact) => {
+    const workspaceDir = join(tmpdir(), `hogagent-media-history-${randomUUID()}`);
+    const fixture = createFixture(workspaceDir);
+    mkdirSync(join(workspaceDir, ".native", "sessions", "default"), { recursive: true });
+    writeFileSync(join(workspaceDir, ".native", "sessions", "default", "target.jsonl"), "existing\n");
+    const storage = new InMemorySessionStorage();
+    const session = new Session(storage);
+    const mainFile = { kind: "image" as const, path: "files/main.png" };
+    const queuedFile = { kind: "video" as const, path: "files/queued.mp4" };
+    const failedFile = { kind: "image" as const, path: "files/rejected.png" };
+    const pending = mediaMessage([mainFile], undefined, "原始图片输入");
+    const mainUser = { role: "user" as const, content: "## Planning Only\noptimized input", timestamp: 1 };
+    await session.appendMessage(pending);
+    await session.appendMessage(mainUser);
+    // Binding facts and control references can be flushed after native user messages.
+    await session.appendMessage({ ...pending, details: { ...pending.details!, owner: { timestamp: 1, text: mainUser.content } } });
+    const cue = `hogagent-media-control:${randomUUID()}`;
+    await session.appendMessage({ role: "user", content: `追加视频\n${cue}`, timestamp: 2 });
+    await session.appendMessage(mediaMessage([queuedFile], cue, "追加视频"));
+    await session.appendMessage(mediaMessage([failedFile], undefined, "未进入主模型的输入"));
+    const keptId = await session.appendMessage({ role: "user", content: "后续普通问题", timestamp: 3 });
+    await session.appendMessage(mediaMessage([{ kind: "image", path: "files/unconsumed.png" }], "never-consumed", "尚未消费"));
+    if (compact) await session.appendCompaction("summary", keptId, 1000);
+    vi.spyOn(storage, "getMetadata").mockResolvedValue({ ...(await storage.getMetadata()), id: "target" });
+    vi.spyOn(JsonlSessionStorage, "open").mockResolvedValue(storage as any);
+    const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      await createSessionHandlers(fixture.deps as any, fixture.state as any).onSwitchSession({ type: "switch_session", session_id: "target", read_only: true });
+      const events = writeSpy.mock.calls.flatMap(([line]) => { try { return [JSON.parse(String(line))]; } catch { return []; } });
+      const messages = events.find(event => event.type === "session_switched")?.messages;
+      expect(messages.filter((message: any) => message.role === "user")).toEqual([
+        { role: "user", content: "原始图片输入", type: "message", attachments: [mainFile] },
+        { role: "user", content: "追加视频", type: "message", attachments: [queuedFile] },
+        { role: "user", content: "未进入主模型的输入", type: "message", attachments: [failedFile] },
+        { role: "user", content: "后续普通问题", type: "message" },
+      ]);
     } finally { rmSync(workspaceDir, { recursive: true, force: true }); }
   });
 

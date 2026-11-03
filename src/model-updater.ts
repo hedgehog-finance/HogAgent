@@ -25,7 +25,7 @@ interface OpenRouterModel {
   id: string;
   name?: string;
   context_length?: number;
-  architecture?: { modality?: string };
+  architecture?: { modality?: string; input_modalities?: string[] };
 }
 
 interface OpenRouterResponse {
@@ -37,6 +37,7 @@ interface HedgehogProxyModel {
   name?: string;
   context_window?: number;
   contextWindow?: number;
+  inputModalities?: ModelConfig["inputModalities"];
 }
 
 // ─── Fetch Helpers ────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ function transformOpenRouter(data: OpenRouterResponse): ModelConfig[] {
       id: entry.id,
       name: entry.name || entry.id,
       contextWindow,
+      inputModalities: ["text", ...(Array.isArray(entry.architecture?.input_modalities) && entry.architecture.input_modalities.includes("image") ? ["image" as const] : [])],
     });
   }
 
@@ -100,6 +102,7 @@ export function transformHedgehogProxy(data: unknown): ModelConfig[] {
       id,
       name: entry.name || id,
       contextWindow: resolvedContextWindow,
+      ...(Array.isArray(entry.inputModalities) ? { inputModalities: entry.inputModalities.filter(value => value === 'text' || value === 'image' || value === 'video') } : {}),
     });
   }
 
@@ -297,7 +300,25 @@ export async function fetchModelsForProvider(
         models = transformHedgehogProxy(data);
       }
 
-      if (models.length > 0) return models;
+      if (models.length > 0) {
+        if (provider === "hedgehog") {
+          // /models is a name catalog; unavailable deployment metadata must not
+          // leave optimistic modality claims from that response enabled.
+          for (const model of models) model.inputModalities = ["text"];
+          try {
+            const infoRequest = addProviderAuth(candidateUrl.replace(/\/models(?=\?|$)/, "/model/info"), provider, apiKey);
+            const infoResponse = await fetch(infoRequest.url, { headers: infoRequest.headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+            if (infoResponse.ok) {
+              const info = await infoResponse.json() as { data?: { model_name: string; model_info?: { supports_vision?: boolean; supports_video_input?: boolean } }[] };
+              for (const model of models) {
+                const entries = Array.isArray(info.data) ? info.data.filter(entry => entry && entry.model_name === model.id) : [];
+                model.inputModalities = ["text", ...(entries.length && entries.every(entry => entry.model_info?.supports_vision === true) ? ["image" as const] : []), ...(entries.length && entries.every(entry => entry.model_info?.supports_video_input === true) ? ["video" as const] : [])];
+              }
+            }
+          } catch { log.warn("Model media capabilities unavailable", { provider }); }
+        }
+        return models;
+      }
       lastError = `${provider} returned no models`;
       log.warn("Response parsed but no models found", {
         provider,

@@ -10,8 +10,8 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 it('checks and regenerates contracts in a checkout with no sibling projects', () => {
   const root = mkdtempSync(join(tmpdir(), 'hogagent-standalone-build-'));
   roots.push(root);
-  for (const dir of ['scripts', 'src/protocol', 'src/artifacts']) mkdirSync(join(root, dir), { recursive: true });
-  for (const file of ['contracts', 'scripts/generate-contracts.mjs', 'src/protocol/generated-contracts.ts', 'src/artifacts/artifact-file-facts.ts']) {
+  for (const dir of ['scripts', 'src/protocol', 'src/artifacts', 'src/media']) mkdirSync(join(root, dir), { recursive: true });
+  for (const file of ['contracts', 'scripts/generate-contracts.mjs', 'src/protocol/generated-contracts.ts', 'src/artifacts/artifact-file-facts.ts', 'src/media/media-input.ts']) {
     cpSync(file, join(root, file), { recursive: true });
   }
   const run = (...args: string[]) => spawnSync(process.execPath, ['scripts/generate-contracts.mjs', ...args], { cwd: root, encoding: 'utf8' });

@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const CONTRACT_FILES = ['agent-result.schema.json', 'artifact-manifest.schema.json', 'artifact-run-policy.schema.json', 'artifact-file-facts.ts'];
+const CONTRACT_FILES = ['agent-result.schema.json', 'artifact-manifest.schema.json', 'artifact-run-policy.schema.json', 'artifact-file-facts.ts', 'media-input.ts'];
 
 function writeOrCheck(target, content, check) {
   if (check) {
@@ -22,6 +22,8 @@ export function generateContracts(contractsDir, targets, check, snapshotDir) {
   const output = '// GENERATED from contracts/*.schema.json by contracts/generate-runtime.mjs. Do not edit.\n'
     + names.map((name, index) => `export const ${name} = ${JSON.stringify(JSON.parse(inputs[index]), null, 2)} as const;\n`).join('\n');
   for (const { projectDir, schemaPath } of targets) {
+    if (!check) mkdirSync(join(projectDir, 'src/media'), { recursive: true });
+    writeOrCheck(join(projectDir, 'src/media/media-input.ts'), '// GENERATED from contracts/media-input.ts. Do not edit.\n' + inputs[4], check);
     writeOrCheck(join(projectDir, schemaPath), output, check);
     writeOrCheck(join(projectDir, 'src/artifacts/artifact-file-facts.ts'), '// GENERATED from contracts/artifact-file-facts.ts. Do not edit.\n' + inputs[3], check);
   }
@@ -35,7 +37,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const root = fileURLToPath(new URL('../', import.meta.url));
   const sharedGenerator = new URL('../../contracts/generate-runtime.mjs', import.meta.url);
   const check = process.argv.includes('--check');
-  if (existsSync(sharedGenerator)) {
+  if (!check && existsSync(sharedGenerator)) {
     const result = spawnSync(process.execPath, [fileURLToPath(sharedGenerator), ...(check ? ['--check'] : [])], { stdio: 'inherit' });
     if (result.error) throw result.error;
     process.exitCode = result.status ?? 1;

@@ -14,6 +14,36 @@ const write = (settings: unknown) => writeFileSync(join(systemDir, "llm-settings
 const read = () => JSON.parse(readFileSync(join(systemDir, "llm-settings.json"), "utf8"));
 
 describe("shared LLM configuration boundaries", () => {
+  it('does not seed disabled development Skills or change their saved preferences', async () => {
+    const path = join(systemDir, 'skills_config.json');
+    writeFileSync(path, JSON.stringify({'hedgehog-news-reports': {'api-key':'unchanged',isLongTaskSpecific:true},'hedgehog-other':{},personal:{'api-key':'personal'}}));
+    vi.stubEnv('NODE_ENV','development'); vi.stubEnv('HEDGEHOG_DEV_ENDPOINTS','1');
+    await executeConfigurationRequest({type:'sync_credentials',apiKey:'api-production'});
+    expect(JSON.parse(readFileSync(path,'utf8'))).toEqual({'hedgehog-news-reports':{'api-key':'unchanged',isLongTaskSpecific:true},'hedgehog-other':{'api-key':'api-production'},personal:{'api-key':'personal'}});
+  });
+  it("moves managed keys and endpoints together across environments without changing model preferences", async () => {
+    write({ provider: "hedgehog", apiKey: "old", modelId: "chosen", baseUrl: "https://api.ciweiai.com/api/llm/v1",
+      audit: { provider: "hedgehog", apiKey: "old", modelId: "audit-chosen", baseUrl: "https://api.ciweiai.com/api/llm/v1", maxIterations: 0 } });
+    for (const baseUrl of ["http://127.0.0.1:8000/api/llm/v1", "https://api.hogagent.com/api/llm/v1", "https://api.ciweiai.com/api/llm/v1"]) {
+      await executeConfigurationRequest({ type: "sync_credentials", llm: { provider: "hedgehog", apiKey: "new", baseUrl } });
+      expect(read()).toMatchObject({ apiKey: "new", baseUrl, modelId: "chosen", providerApiKeys: { hedgehog: "new" },
+        audit: { apiKey: "new", baseUrl, modelId: "audit-chosen", maxIterations: 0 } });
+    }
+  });
+  it("preserves non-Hedgehog endpoints and a disabled audit during managed synchronization", async () => {
+    write({ provider: "custom", apiKey: "personal", baseUrl: "https://private.test/v1", modelId: "chosen", audit: { provider: "close" } });
+    await executeConfigurationRequest({ type: "sync_credentials", llm: { apiKey: "managed", baseUrl: "http://127.0.0.1:8000/api/llm/v1" } });
+    expect(read()).toMatchObject({ provider: "custom", apiKey: "personal", baseUrl: "https://private.test/v1", modelId: "chosen", audit: { provider: "close" }, providerApiKeys: { hedgehog: "managed" } });
+  });
+  it('keeps an inactive managed provider endpoint paired for discovery and a later switch', async () => {
+    write({provider:'custom',apiKey:'personal',baseUrl:'https://personal.test/v1',audit:{provider:'close'}});
+    await executeConfigurationRequest({type:'sync_credentials',llm:{apiKey:'sk-test',baseUrl:'https://api.hogagent.com/api/llm/v1'}});
+    const fetch = vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({data:[{id:'fixture'}]})));
+    await listConfiguredModels({provider:'hedgehog'});
+    expect(fetch).toHaveBeenCalledWith('https://api.hogagent.com/api/llm/v1/models',expect.objectContaining({headers:{Authorization:'Bearer sk-test'}}));
+    await executeConfigurationRequest({type:'save_settings',settings:{provider:'hedgehog'}});
+    expect(read()).toMatchObject({apiKey:'sk-test',baseUrl:'https://api.hogagent.com/api/llm/v1',audit:{provider:'close'}});
+  });
   it.each([{ audit: { maxIterations: -1 } }, { compaction: { autoCompactThreshold: 2 } }])(
     "rejects invalid runtime values before persisting %j", async settings => {
       write({ provider: "hedgehog", apiKey: "unchanged" });

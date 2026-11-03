@@ -19,6 +19,7 @@ const prompt = `Reply with exactly ${marker}. Do not use tools.`;
 let socket;
 let requests = 0;
 let toolCalls = 0;
+const capturedRequests = [];
 const model = createServer(async (req, res) => {
   let body = '';
   for await (const chunk of req) body += chunk;
@@ -26,9 +27,14 @@ const model = createServer(async (req, res) => {
     res.setHeader('content-type', 'application/json');
     return res.end(JSON.stringify({ data: [{ id: 'readme-smoke' }] }));
   }
+  if (req.url === '/v1/model/info') {
+    res.setHeader('content-type', 'application/json');
+    return res.end(JSON.stringify({ data: [{ model_name: 'readme-smoke', model_info: { supports_vision: true, supports_video_input: true } }] }));
+  }
   assert.equal(req.url, '/v1/chat/completions');
   assert.equal(req.headers.authorization, 'Bearer readme-test-key');
   const request = JSON.parse(body);
+  capturedRequests.push(request);
   assert.ok(request.messages.length > 0);
   const instructions = JSON.stringify(request.messages.filter(message => ['system', 'developer'].includes(message.role)));
   assert.ok(instructions.includes('# HogAgent Workspace Rules'), 'Generated workspace instructions must reach the model');
@@ -120,6 +126,27 @@ try {
   send(rpc, { type: 'prompt', text: prompt, mode: 'quick' });
   await until(() => rpc.events.find(event => event.type === 'agent_end'), 'RPC completion');
   assert.ok(rpc.events.filter(event => event.type === 'message_update').map(event => event.delta ?? '').join('').includes(marker), JSON.stringify(rpc.events.slice(-8)));
+  if (liveIndex < 0) {
+    const uploads = join(system, 'workspace', 'files');
+    mkdirSync(uploads, { recursive: true });
+    const image = Buffer.from([137,80,78,71,13,10,26,10,0]);
+    const video = Buffer.from([0,0,0,20,...Buffer.from('ftypisom'),0,0,0,0]);
+    writeFileSync(join(uploads, '中文 image.png'), image);
+    writeFileSync(join(uploads, 'clip.mp4'), video);
+    const files = [{ kind: 'image', path: 'files/中文 image.png' }, { kind: 'video', path: 'files/clip.mp4' }];
+    let terminals = rpc.events.filter(event => event.type === 'agent_end').length;
+    send(rpc, { type: 'prompt', text: 'Files uploaded', mode: 'quick', attachments: files.map(file => ({ ...file, kind: 'file' })) });
+    await until(() => rpc.events.filter(event => event.type === 'agent_end').length > terminals, 'ordinary media files');
+    assert.ok(!JSON.stringify(capturedRequests.at(-1)).includes('data:image/'));
+    assert.ok(!JSON.stringify(capturedRequests.at(-1)).includes('data:video/'));
+    terminals++;
+    send(rpc, { type: 'prompt', text: '', mode: 'quick', attachments: files });
+    await until(() => rpc.events.filter(event => event.type === 'agent_end').length > terminals, 'native media completion');
+    const blocks = capturedRequests.at(-1).messages.flatMap(message => Array.isArray(message.content) ? message.content : []);
+    assert.ok(blocks.some(block => block.type === 'image_url' && block.image_url.url === `data:image/png;base64,${image.toString('base64')}`));
+    assert.ok(blocks.some(block => block.type === 'video_url' && block.video_url.url === `data:video/mp4;base64,${video.toString('base64')}`));
+    console.log('PASS real Harness hooks: file intent excluded; image/video native payload; media-only quick input');
+  }
   send(rpc, { type: 'shutdown' });
   await exited(rpc);
   console.log('PASS RPC ready/state/prompt/shutdown');
@@ -161,6 +188,34 @@ try {
   socket.send(JSON.stringify({ type: 'rpc_command', command: { type: 'prompt', text: prompt, mode: 'quick' } }));
   await until(() => events.find(event => event.type === 'agent_end'), 'WebSocket completion');
   assert.ok(events.filter(event => event.type === 'message_update').map(event => event.delta ?? '').join('').includes(marker));
+  if (liveIndex < 0 && process.argv.includes('--media-ui')) {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const tab = await browser.newPage();
+      const errors = [];
+      tab.on('pageerror', error => errors.push(error.message));
+      await tab.goto(origin);
+      await tab.waitForFunction(() => !document.querySelector('#media-btn').disabled);
+      const png = { name: '中文 image.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZV8AAAAASUVORK5CYII=', 'base64') };
+      await tab.locator('#file-input').setInputFiles(png);
+      await tab.waitForFunction(() => !document.querySelector('#send-btn').disabled);
+      assert.match(await tab.locator('#upload-preview').innerText(), /普通文件/);
+      assert.equal(await tab.locator('#upload-preview img').count(), 0);
+      await tab.locator('.file-chip-remove').click();
+      await tab.locator('#media-input').setInputFiles(png);
+      await tab.waitForFunction(() => !document.querySelector('#send-btn').disabled);
+      assert.match(await tab.locator('#upload-preview').innerText(), /图片 · 发送给模型/);
+      assert.equal(await tab.locator('#upload-preview img').count(), 1);
+      const before = capturedRequests.length;
+      await tab.locator('#send-btn').click();
+      await until(() => capturedRequests.length > before, 'WebUI media send');
+      assert.ok(JSON.stringify(capturedRequests.at(-1)).includes('data:image/png;base64,'));
+      await tab.waitForFunction(() => !document.querySelector('#send-btn').disabled);
+      assert.deepEqual(errors, []);
+      console.log('PASS HogAgent WebUI browser: distinct upload intents, preview and media-only send');
+    } finally { await browser.close(); }
+  }
   if (process.platform === 'win32') {
     // Windows terminates the Web server on SIGTERM; first stop its RPC child.
     socket.send(JSON.stringify({ type: 'rpc_command', command: { type: 'shutdown' } }));

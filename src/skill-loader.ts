@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { discoverSkills } from "./config.ts";
 import { createLogger } from "./utils/logger.ts";
 import type { Skill } from "./vendor/agent/harness/types.ts";
+import { isSkillDisabledInDevelopment } from './development-skill-policy.ts';
 
 const log = createLogger("core");
 
@@ -18,6 +19,10 @@ function loadSkillsFromDirs(workspaceDir: string): Skill[] {
   const descriptors = discoverSkills(workspaceDir);
 
   for (const descriptor of descriptors) {
+    if (isSkillDisabledInDevelopment(descriptor.name)) {
+      log.warn('Skill disabled by isolated development policy', { name: descriptor.name });
+      continue;
+    }
     const skillMdPath = join(descriptor.path, "SKILL.md");
     if (!existsSync(skillMdPath)) continue;
 
@@ -30,6 +35,7 @@ function loadSkillsFromDirs(workspaceDir: string): Skill[] {
         log.warn("Skipping skill without frontmatter", { path: skillMdPath });
         continue;
       }
+      if (isSkillDisabledInDevelopment(parsed.name)) continue;
 
       skills.push({
         name: parsed.name,

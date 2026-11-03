@@ -237,6 +237,7 @@ export interface LlmProviderConfig {
 
 /** Model configuration entry. */
 export interface ModelConfig {
+  inputModalities?: ("text" | "image" | "video")[];
   id: string;
   name: string;
   contextWindow: number;
@@ -261,6 +262,7 @@ export interface MemoryConfig {
 
 /** Capabilities reported in the ready event. */
 export interface Capabilities {
+  media?: import('../media/media-input.ts').MediaCapabilities;
   extensions: string[];
   builtin_tools: string[];
   installed_skills: string[];
@@ -271,6 +273,7 @@ export interface Capabilities {
   supports_gateway_projects?: boolean;
   /** Read-only history bypasses Prompt execution without changing the Harness. */
   supports_concurrent_history_read?: boolean;
+  supports_steering?: boolean;
   /** Native, hidden runtime-context injection supported by this process. */
   runtime_context: {
     schema_version: "1.0";

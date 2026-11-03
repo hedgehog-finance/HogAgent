@@ -1,3 +1,5 @@
+import { getMediaMessages, isMediaMessage, mediaOwner } from "../media/context.ts";
+import type { MediaAttachment } from "../media/media-input.ts";
 import { deliveryReceiptsFromEntries } from "../artifacts/file-delivery.ts";
 /**
  * Session Management RPC Handlers
@@ -551,7 +553,7 @@ export function createSessionHandlers(deps: HandlerDeps, state: HandlerMutableSt
 
       // Display uses the compacted active context. Consumption includes all persisted
       // assistant calls, including compacted history and abandoned retry branches.
-      const messages: Array<{ role: string; content: string; type: string }> = [];
+      const messages: Array<{ role: string; content: string; type: string; attachments?: MediaAttachment[] }> = [];
       const usageHistory: Array<{ input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number; cost: number }> = [];
       const persistedEntries = await switchSession.getEntries();
       const deliveryFiles = deliveryReceiptsFromEntries(persistedEntries, sessionId);
@@ -569,19 +571,38 @@ export function createSessionHandlers(deps: HandlerDeps, state: HandlerMutableSt
         });
       }
       let firstUserMessage = "";
+      const branchMessages = branch.flatMap(entry => entry.type === "message" ? [entry.message] : []);
+      const mediaRecords = getMediaMessages(branchMessages);
+      const mediaById = new Map(mediaRecords.filter(record => record.details?.id).map(record => [record.details!.id, record]));
+      const owners = new Map(mediaRecords.map(record => [record, mediaOwner(record, context.messages)]));
+      const standalone = new Set(mediaRecords.filter(record => record.details?.text !== undefined && !owners.get(record)
+        && (!record.details?.cue || mediaOwner(record, branchMessages))));
+      const renderedStandalone = new Set<typeof mediaRecords[number]>();
+      const renderStandalone = (record: typeof mediaRecords[number]) => {
+        if (!standalone.has(record) || renderedStandalone.has(record)) return;
+        renderedStandalone.add(record);
+        const text = record.details!.text!;
+        messages.push({ role: "user", content: text, type: "message", attachments: record.details!.attachments });
+        if (!firstUserMessage && text.length >= 2) firstUserMessage = text.slice(0, 30);
+      };
+      // Media retained across compaction owns its original input, never a later user message.
+      for (const record of standalone) if (!getMediaMessages(context.messages).some(item => item.details?.id === record.details?.id)) renderStandalone(record);
       for (const msg of context.messages) {
+        if (isMediaMessage(msg)) { renderStandalone(mediaById.get(msg.details?.id) ?? msg); continue; }
         const role = (msg as any).role;
         if (role === "user" || role === "assistant") {
           const text = messageText(msg as any);
+          const attached = role === "user" ? mediaRecords.filter(record => owners.get(record) === msg) : [];
+          const pendingMedia = attached.flatMap(record => record.details?.attachments ?? []);
           // Skip internal user messages (system-generated prompts, clarification, etc.)
           if (role === "user") {
             const isInternal = INTERNAL_PATTERNS.some((p) => p.test(text));
-            if (isInternal) continue;
+            if (isInternal && !attached.length) continue;
             if (!firstUserMessage && text.length >= 2) firstUserMessage = text.slice(0, 30);
           }
-          const visibleText = role === "assistant" ? stripDeliveryDecision(text) : text;
+          const visibleText = role === "assistant" ? stripDeliveryDecision(text) : attached.find(record => record.details?.text !== undefined)?.details?.text ?? text;
           if (role !== "assistant" || visibleText.trim()) {
-            messages.push({ role, content: visibleText, type: thinkingMessages.has(msg) ? "thinking" : "message" });
+            messages.push({ role, content: visibleText.replace(/\nhogagent-media-control:[0-9a-f-]{36}/g, ""), type: thinkingMessages.has(msg) ? "thinking" : "message", ...(role === "user" && pendingMedia.length ? { attachments: pendingMedia } : {}) });
           }
         }
       }
@@ -598,7 +619,7 @@ export function createSessionHandlers(deps: HandlerDeps, state: HandlerMutableSt
         let origIdx = 0;
         for (let i = 0; i < messages.length && origIdx < originals.length; i++) {
           if (messages[i]!.role === "user") {
-            messages[i]!.content = originals[origIdx]!;
+            if (!messages[i]!.attachments?.length) messages[i]!.content = originals[origIdx]!;
             origIdx++;
           }
         }

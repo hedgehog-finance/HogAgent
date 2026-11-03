@@ -51,6 +51,8 @@ describe("RuntimeGrant", () => {
       PYTHONPATH: "/host/modules",
       CONDA_PREFIX: "/host/conda",
       HOGAGENT_LLM_API_KEY: "llm-secret",
+      HEDGEHOG_DEV_LLM_API_KEY: "borrowed-model-secret",
+      HEDGEHOG_DEV_DATA_API_KEY: "borrowed-data-secret",
       HOGAGENT_SEARCH_API_KEY: "search-secret",
       CIWEIAI_API_KEY: "skill-key",
     };
@@ -110,6 +112,8 @@ describe("RuntimeGrant", () => {
     expect(applied.PYTHONPATH).toBeUndefined();
     expect(applied.CONDA_PREFIX).toBeUndefined();
     expect(applied.HOGAGENT_LLM_API_KEY).toBeUndefined();
+    expect(applied.HEDGEHOG_DEV_LLM_API_KEY).toBeUndefined();
+    expect(applied.HEDGEHOG_DEV_DATA_API_KEY).toBeUndefined();
     expect(applied.HOGAGENT_SEARCH_API_KEY).toBeUndefined();
     expect(applied.CIWEIAI_API_KEY).toBe("skill-key");
     expect(applied.VIRTUAL_ENV).toBe(pythonRoot);

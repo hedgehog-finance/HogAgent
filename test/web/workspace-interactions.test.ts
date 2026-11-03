@@ -17,6 +17,7 @@ beforeEach(async () => {
   });
   commands = [];
   const { window } = dom;
+  Object.assign(window.URL, { createObjectURL: vi.fn(() => 'blob:fixture'), revokeObjectURL: vi.fn() });
   Object.assign(window, { Headers, Request });
   window.fetch = vi.fn(async (input: string) => {
     const path = new URL(input, window.location.href).pathname;
@@ -42,6 +43,65 @@ beforeEach(async () => {
 });
 
 afterEach(() => dom.window.close());
+
+it('reserves an upload batch before I/O and drops its pending files after a new Session clears the draft', async () => {
+  const { window } = dom;
+  const originalFetch = window.fetch;
+  let finishUpload!: (value: Response) => void;
+  const uploads = vi.fn(() => new Promise<Response>(resolve => { finishUpload = resolve; }));
+  window.fetch = vi.fn((input: string, init?: RequestInit) => String(input).startsWith('/api/upload') ? uploads() : originalFetch(input, init)) as typeof window.fetch;
+  Object.assign(window, { __files: [new window.File(['one'], 'one.txt'), new window.File(['two'], 'two.txt')] });
+  const batch = window.eval('uploadFiles(window.__files)') as Promise<void>;
+  expect(window.eval('window.__state.uploadedFiles.map(file => file.status)')).toEqual(['uploading', 'pending']);
+  expect((window.document.getElementById('send-btn') as HTMLButtonElement).disabled).toBe(true);
+  window.eval('sendPrompt("should wait")');
+  expect(commands.some(item => (item.command as any)?.type === 'prompt')).toBe(false);
+  window.eval('window.__state.pendingNewSessionUI = true; handleRpcEvent({type:"ready", session_id:"new-session", capabilities:{}})');
+  finishUpload({ ok: true, status: 200, json: async () => ({ path: 'files/one.txt', name: 'one.txt' }) } as Response);
+  await batch;
+  expect(uploads).toHaveBeenCalledTimes(1);
+  expect(window.eval('window.__state.uploadedFiles')).toEqual([]);
+});
+
+it('does not restore media from a failed send into a different Session', () => {
+  dom.window.eval(`
+    window.__state.sessionId = 'original'; window.__state.media = {image:true,video:false};
+    window.__state.uploadedFiles = [{kind:'image',path:'files/a.png',name:'a.png',size:1,mimeType:'image/png'}];
+    sendPrompt('original prompt');
+    handleRpcEvent({type:'session_switched',session_id:'other',messages:[]});
+    window.__state.isBusy = true;
+    window.__state.lastMediaSend = {sessionId:'other',text:'new prompt',files:[]};
+    handleRpcEvent({type:'error',session_id:'original',command_type:'prompt',error:'late failure'});
+    handleRpcEvent({type:'agent_end',session_id:'original',reason:'completed'});
+  `);
+  expect(dom.window.eval('window.__state.uploadedFiles')).toEqual([]);
+  expect((dom.window.document.getElementById('message-input') as HTMLTextAreaElement).value).toBe('');
+  expect(dom.window.eval('window.__state.isBusy')).toBe(true);
+  expect(dom.window.eval('window.__state.lastMediaSend.text')).toBe('new prompt');
+});
+
+it('shows a video codec preview failure without changing its media purpose', () => {
+  dom.window.eval(`
+    window.__state.media = {image:true,video:true};
+    window.__state.uploadedFiles = [{kind:'video',path:'files/a.mp4',name:'a.mp4',size:1,mimeType:'video/mp4',preview:'blob:fixture',status:'ready'}];
+    renderUploadPreview();
+    document.querySelector('#upload-preview video').dispatchEvent(new Event('error'));
+  `);
+  expect(dom.window.document.querySelector('#upload-preview')?.textContent).toContain('无法预览，可继续发送');
+  expect(dom.window.eval('window.__state.uploadedFiles[0].kind')).toBe('video');
+  expect((dom.window.document.getElementById('send-btn') as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('keeps media intent when restoring a failed prompt in its original Session', () => {
+  dom.window.eval(`
+    window.__state.sessionId = 'original'; window.__state.media = {image:true,video:false};
+    window.__state.uploadedFiles = [{kind:'image',path:'files/a.png',name:'a.png',size:1,mimeType:'image/png'}];
+    sendPrompt('original prompt');
+    handleRpcEvent({type:'error',session_id:'original',command_type:'prompt',error:'failed'});
+  `);
+  expect(dom.window.eval('window.__state.uploadedFiles')).toMatchObject([{kind:'image',path:'files/a.png'}]);
+  expect((dom.window.document.getElementById('message-input') as HTMLTextAreaElement).value).toBe('original prompt');
+});
 
 it('restores saved audit fields after cancelling edits and reopening settings', () => {
   dom.window.eval(`
@@ -474,7 +534,7 @@ it('restores read-only history and preserves the composer when resume fails', ()
   expect(commands.some(item => (item.command as any)?.type === 'prompt')).toBe(false);
 });
 
-it('blocks Quick attachments without changing mode or clearing the draft', () => {
+it('keeps ordinary Quick attachments as file references without adding media payload', () => {
   const { window } = dom;
   const input = window.document.getElementById('message-input') as HTMLTextAreaElement;
   input.value = 'read the attachment';
@@ -483,14 +543,13 @@ it('blocks Quick attachments without changing mode or clearing the draft', () =>
     uploadedFiles: [{path:"/workspace/input.pdf",name:"input.pdf",size:12}]
   })`);
   (window.document.getElementById('send-btn') as HTMLElement).click();
-  expect(commands.some(item => (item.command as any)?.type === 'prompt')).toBe(false);
-  expect(input.value).toBe('read the attachment');
-  expect(window.eval('window.__state.uploadedFiles.length')).toBe(1);
+  expect(commands.find(item => (item.command as any)?.type === 'prompt')?.command).toEqual({ type: 'prompt', text: '[attached files: /workspace/input.pdf]\nread the attachment', mode: 'quick' });
+  expect(input.value).toBe('');
+  expect(window.eval('window.__state.uploadedFiles.length')).toBe(0);
   expect(window.eval('window.__state.conversationMode')).toBe('quick');
-  expect(window.document.getElementById('messages-container')?.textContent).toContain('请切换到 Standard');
 });
 
-it('consumes state.mode and restores refreshed history only after a reconnected run is idle', () => {
+it('consumes window.__state.mode and restores refreshed history only after a reconnected run is idle', () => {
   const { window } = dom;
   window.eval('handleRpcEvent({type:"state",session_id:"business",model:"m",mode:"long_task"})');
   expect(window.eval('window.__state.conversationMode')).toBe('long_task');

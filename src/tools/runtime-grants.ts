@@ -347,7 +347,8 @@ export function applyRuntimeGrantEnvironment(
   const environment = normalizeEnvironment(baseEnvironment, platform);
   for (const name of Object.keys(environment)) {
     if (CLEARED_RUNTIME_ENVIRONMENT.has(name) || name.startsWith("CONDA_")
-      || HOGAGENT_SECRET_ENVIRONMENT.test(name)) {
+      || HOGAGENT_SECRET_ENVIRONMENT.test(name)
+      || /^HEDGEHOG_DEV_(LLM|DATA)_API_KEY$/.test(name)) {
       delete environment[name];
     }
   }

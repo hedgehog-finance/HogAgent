@@ -236,10 +236,15 @@ For a process serving more than one session, include the active `session_id` on 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `text` | string | Yes | Steering instruction |
+| `session_id` | string | Recommended | Must match the active session |
+| `expected_run_id` | string | Recommended | Must match the active Prompt Run's external `run_id`; Gateway requires this field |
+| `request_id` | string | Recommended | Correlated in `steer_queued` or `error`, including immediate admission rejections |
+
+Ready capabilities advertise `supports_steering: true` for this guarded, acknowledged protocol. A finished, aborting or mismatched Prompt Run is rejected before queue insertion. Steering errors carry `command_type: "steer"`; definite admission rejections also carry `code: "CONFLICT"`. A failed steer/follow-up does not emit `agent_end` for the original Prompt Run. Clients must not automatically replay a request whose acknowledgement was lost. At the owning Prompt Run boundary, HogAgent clears any unconsumed steer/follow-up entries through the public Harness abort API after execution has unwound. This prevents an accepted correction from leaking into the next Prompt after a model failure; acknowledgement still does not guarantee consumption. No vendor source changes are required.
 
 #### `follow_up`
 
-Queue a follow-up message to be processed after current run completes. **Bypasses the FIFO command queue** and is dispatched immediately to HogAgent (not queued in Gateway), because `followUp` also requires `Harness.phase ≠ idle`.
+Queue a follow-up message to be processed when the current Harness execution would otherwise finish, within the same Prompt Run. **Bypasses the FIFO command queue** and is dispatched immediately to HogAgent (not queued in Gateway), because `followUp` also requires `Harness.phase ≠ idle`.
 
 ```json
 {"type": "follow_up", "text": "Also check the PE ratio"}
@@ -770,7 +775,7 @@ LLM settings were persisted.
 
 Confirmation events for `steer`, `follow_up`, and `abort` commands. All carry `session_id`. `aborted` is also the terminal lifecycle event for an externally aborted `long_task` orchestration.
 
-> **Naming note:** `steer_queued` / `follow_up_queued` are historical names. These events are emitted **after** steer/followUp successfully executes, not when they are "queued". Both commands bypass the FIFO queue and execute immediately.
+> **Acknowledgement:** `steer_queued` / `follow_up_queued` confirm insertion into the Harness input queue, not model consumption or completion. Both commands bypass the RPC FIFO. Steering is consumed at a processing boundary during execution; follow-up waits until the Harness would otherwise finish. `request_id` correlates acknowledgements and errors to the request.
 
 #### `abort_completed`
 
@@ -809,6 +814,7 @@ interface Capabilities {
   extensions: string[];           // Loaded extension names
   builtin_tools: string[];        // All tools (Pi built-in + custom + extension-registered)
   installed_skills: string[];     // Discovered skill names
+  supports_steering?: boolean;    // Guarded steering with correlated acknowledgements
   supports_compaction: boolean;   // Automatic and idle manual compaction available
   supports_sub_agent: boolean;    // Sub-agent spawning available
   runtime_context: {              // Native hidden runtime-context contract
@@ -1189,3 +1195,7 @@ The `prompt` command's optional `mode` field is a **hard routing directive**:
 Content compression is off by default. Disabling takes effect at the next idle RPC boundary after the current top-level task finishes: both retrieval tools and their model-visible definitions are removed, the hook is detached, and cached Entry IDs expire. Enabling always requires a process restart. Threshold changes apply only to an already active compressor. Both save_settings and Gateway reload_config await the same extension configuration application; failures are reported rather than acknowledged as applied. Native tool definitions and data-access prompt guidance follow the effective tool catalogue, independently of persisted enabling intent. History may retain old tool names and Entry IDs; disabling does not rewrite history.
 
 The delivery event now includes stable `id`, `session_id`, `run_id`, `fingerprint` and source metadata. Empty `files` with `requested_files` records explicit intent only and must not create download cards. See [Artifact Manifest](artifact-manifest.md); consumers must preserve receipt IDs and original Session identity.
+
+## 多模态附件（1.2.6）
+
+模型能力、两个上传入口、原生图片／视频、队列及审核协议见[多模态输入](multimodal-input.md)。旧附件默认普通文件；只有显式媒体用途才将内容传入模型。

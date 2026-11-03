@@ -1,6 +1,14 @@
-# Standalone release validation — 2026-09-20
+# Standalone release validation — 2026-11-03
 
-Target: https://github.com/hedgehog-finance/HogAgent.git, version `1.2.5`.
+Target: https://github.com/hedgehog-finance/HogAgent.git, version `1.2.6`.
+
+## 1.2.6 standalone publication validation
+
+The release uses the HogAgent source snapshot from monorepo commit `e9388bdcf5afeaca52021c8d89818a31829b6e6a`. Publication validation found and fixed one test-fixture omission: the standalone contract test must copy the generated media contract alongside the existing protocol and artifact contracts. Runtime source remains identical to that snapshot; 1.2.7 computer automation is not included.
+
+Validation ran on macOS with Node.js `22.23.1` and npm `10.9.8`, from a separate checkout using the existing dependency installation. This was not a fresh dependency-installation test. Type checks, build, and README smoke tests including `--media-ui` passed. Smoke tests used temporary workspaces and loopback model fixtures without provider credentials; they cover native image/video payloads, distinct upload intents, browser previews, CLI/RPC/WebSocket flows, and all six examples. Real operating-system clipboard and provider acceptance remain unverified.
+
+After the fixture correction, the full Vitest suite passed: **96 files, 943 tests passed, 21 conditional tests skipped**. The compiled CLI reports `hogagent v1.2.6`; `git diff --check` also passed.
 
 ## 1.2.5 workspace template validation
 
@@ -62,3 +70,6 @@ The public snapshot contains source, vendored Pi, built-in Skills, tests, docume
 The clean installation reported 15 npm advisories (3 moderate, 12 high) in the existing dependency tree. Dependency upgrades and their compatibility review were not part of this source-publication change. Re-run `npm audit` for the current advisory details; the count can change independently of this release.
 
 The first cloud run exposed Windows CRLF conversion, a Homebrew framework Python symlink layout, and a download stream that could send newly appended bytes beyond Content-Length. Follow-up fixes preserve checkout line endings, validate the exact base interpreter link, and bound the download stream. These failures were addressed rather than skipped.
+# 1.2.6 多模态输入
+
+本次构建、类型检查、108 项相关单元回归及 `node test/smoke/readme.mjs --media-ui` 通过。后者使用本机模拟模型验证实际 Harness 图片／视频 payload、普通文件排除、媒体单独发送，以及 WebUI 两个上传入口和图片预览。Windows／macOS 的真实剪贴板和 Safari 验收尚未执行；不将模拟协议测试视为真实供应商验收。协议见[多模态输入](multimodal-input.md)。

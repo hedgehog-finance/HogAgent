@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { getProjectRoot, getSystemDir, loadPersistedLlmSettings, loadSkillApiConfig, mergeLlmSettingsPatch, savePersistedLlmSettings, saveSkillApiConfig, type PersistedLlmSettings } from "./config.ts";
 import { fetchModelsForProvider } from "./model-updater.ts";
 import { HEDGEHOG_DEFAULT_MODEL_ID } from "./model-utils.ts";
+import { isSkillDisabledInDevelopment } from './development-skill-policy.ts';
 
 const Fields = Type.Record(Type.String(), Type.Unknown());
 const EndpointFields = {
@@ -39,7 +40,7 @@ export type ConfigurationRequest = Static<typeof ConfigurationRequestSchema>;
 export async function listConfiguredModels(input: { provider?: string; baseUrl?: string; apiKey?: string }) {
   const settings = loadPersistedLlmSettings(true);
   const provider = input.provider || settings.provider || "hedgehog";
-  const baseUrl = input.baseUrl ?? (provider === settings.provider ? settings.baseUrl : undefined);
+  const baseUrl = input.baseUrl ?? (provider === (settings.provider || 'hedgehog') ? settings.baseUrl : undefined) ?? settings.providerBaseUrls?.[provider];
   const apiKey = input.apiKey ?? (provider === (settings.provider || "hedgehog") ? settings.apiKey : undefined)
     ?? settings.providerApiKeys?.[provider];
   const models = await fetchModelsForProvider(provider, baseUrl, apiKey);
@@ -55,15 +56,22 @@ function syncLlm(input: Static<typeof Llm>): PersistedLlmSettings {
   if (input.apiKey) next.providerApiKeys[provider] = input.apiKey;
   else delete next.providerApiKeys[provider];
   const baseUrl = input.baseUrl || (provider === "hedgehog" ? "https://api.ciweiai.com/api/llm/v1" : undefined);
+  if (provider === 'hedgehog') {
+    next.providerBaseUrls = { ...current.providerBaseUrls };
+    if (baseUrl && input.apiKey) next.providerBaseUrls[provider] = baseUrl;
+    else delete next.providerBaseUrls[provider];
+  }
   if (!current.provider || current.provider === provider) {
     next.provider = provider;
     next.apiKey = input.apiKey;
     if (!current.modelId && input.apiKey) next.modelId = input.model || (provider === "hedgehog" ? HEDGEHOG_DEFAULT_MODEL_ID : "");
-    if (!current.baseUrl && baseUrl && input.apiKey) next.baseUrl = baseUrl;
+    // A managed Hedgehog key belongs to the issuing service environment.
+    // Carry its endpoint with the key when switching local/test/production.
+    if (baseUrl && input.apiKey && (provider === "hedgehog" || !current.baseUrl)) next.baseUrl = baseUrl;
   }
   if (current.audit?.provider === provider) {
     next.audit = { ...current.audit, apiKey: input.apiKey };
-    if (!next.audit.baseUrl && baseUrl && input.apiKey) next.audit.baseUrl = baseUrl;
+    if (baseUrl && input.apiKey && (provider === "hedgehog" || !next.audit.baseUrl)) next.audit.baseUrl = baseUrl;
   }
   if (JSON.stringify(next) !== JSON.stringify(current)) savePersistedLlmSettings(next);
   return next;
@@ -80,6 +88,7 @@ function syncSkillKeys(apiKey: string, workspace?: string): void {
     }
   }
   for (const name of names) {
+    if (isSkillDisabledInDevelopment(name)) continue;
     if (config[name]?.["api-key"] !== apiKey) saveSkillApiConfig(name, { "api-key": apiKey });
   }
 }

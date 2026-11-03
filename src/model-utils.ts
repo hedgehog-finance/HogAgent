@@ -106,7 +106,7 @@ export function configModelToAgentModel(
     provider: provider as Model<any>["provider"],
     baseUrl: normalizeInferenceBaseUrl(provider, baseUrl),
     reasoning: !!thinkingFormat,
-    input: ["text"],
+    input: Array.isArray(mc.inputModalities) && mc.inputModalities.includes("image") ? ["text", "image"] : ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow,
     maxTokens: Math.min(Math.floor(contextWindow / 4), 16384),
@@ -122,5 +122,5 @@ export function configModelToAgentModel(
     model.compat = { ...model.compat, cacheControlFormat: "anthropic" };
   }
 
-  return model;
+  return Object.assign(model, { supportsVideoInput: Array.isArray(mc.inputModalities) && mc.inputModalities.includes("video") && model.api === "openai-completions" });
 }

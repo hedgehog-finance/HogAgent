@@ -1,5 +1,11 @@
 # HogAgent Development Guide
 
+## Standalone delivery
+
+`contracts:check` validates this directory's bundled contracts only, so builds no longer require the integration repository's frontend checkout. Contract generation may synchronize all consumers when invoked in the full repository; independent copies use their local contracts. Gateway is distributed with HogAgent as a sibling, but HogAgent's own build remains standalone. Shared contract changes must be synchronized and reviewed in the integration repository before release.
+
+Partial device tests may use Gateway `--skills=off`; this disables loading and seeding without deleting files. All service selections share the original ~/.hogagent directory and ports. Stop the current processes before switching, then log in again. Shared-key persistence remains unchanged. See [configuration](configuration.md).
+
 ## Build Commands
 
 ```bash

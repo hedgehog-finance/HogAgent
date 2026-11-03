@@ -1,12 +1,16 @@
 # HogAgent
 
+単独ビルドは同梱の契約を検証し、frontend を必要としません。Gateway の部分テストでは `--skills=off` により開発モードだけで Skills を無効化できます。本番の共有認証情報と既定動作は変更しません。[開発](docs/development.md)と[設定](docs/configuration.md)を参照してください。
+
+Gateway管理のHedgehog認証情報は、環境切り替え時にキーと接続先を同時に更新します。モデル設定、無効な監査設定、他のProvider設定は保持されます。[設定ガイド](docs/configuration.md)を参照してください。
+
 [English](README.md) · [简体中文](README-CN.md) · [日本語](README-JA.md)
 
 HogAgent は金融リサーチに最適化された汎用 AI エージェントエンジンです。モデルの推論、ツール、Skills を組み合わせて調査、分析、ファイル作成を実行し、ブラウザー UI とアプリケーション統合用の JSONL RPC を提供します。
 
 - **公式サイト：**[ciweiai.com/hogagent.html](https://ciweiai.com/hogagent.html)
 - **金融データソースとツール：**[Hedgehog Skills](https://github.com/hedgehog-finance/hedgehog-skills/)
-- **バージョン：**`1.2.5` · **ライセンス：**[GPL-3.0](LICENSE)
+- **バージョン：**`1.2.6` · **ライセンス：**[GPL-3.0](LICENSE)
 
 ## 主な機能
 
@@ -16,6 +20,7 @@ HogAgent は金融リサーチに最適化された汎用 AI エージェント�
 - **モデル：**複数のプロバイダーと独自の OpenAI 互換エンドポイントに対応し、メインモデルと監査モデルを個別に設定できます。
 - **Web UI：**ストリーミング対話、履歴、ユーザーとワークスペースの選択、モデル設定、Skills、ツール、テーマ、ファイルプレビュー。
 - **アプリケーション統合：**stdin/stdout の JSONL コマンドとイベント、セッション永続化、自動コンテキスト圧縮、プロセス・セッション・実行単位のコンテキスト。Gateway は認証済みプロジェクトの関連付けとメタデータを管理します。
+- **実行中の修正：**RPC の `supports_steering`、セッション・実行 ID の検証、リクエストに対応する応答により、進行中のタスクへ修正を送信できます。モデルが失敗した場合も、実行終了時に未処理の修正・フォローアップを破棄し、次のタスクへの混入を防ぎます。[RPC steer](docs/orchestrator-integration.md#steer) を参照してください。
 
 Pi Agent Harness は `src/vendor/` に含まれます。HogAgent は単独で、または HedgehogGateway、IDE プラグインなどの子プロセスとして動作します。
 
@@ -90,3 +95,5 @@ npm run test:readme
 | [開発](docs/development.md) / [トラブルシューティング](docs/troubleshooting.md) | ビルド、テスト、診断 |
 
 Windows のチェックアウトは LF 改行を維持します。Python 環境は検証済みのフレームワーク実行ファイルのシンボリックリンクに対応し、ダウンロード中にファイルが増えても宣言済みの長さを超えて送信しません。
+
+画像／動画入力と通常のファイル添付は別の操作です。Windows の Ctrl+V と macOS の Cmd+V に対応します。[入力仕様と検証範囲](docs/multimodal-input.md)。

@@ -1,12 +1,16 @@
 # HogAgent
 
+In development mode with the production API, data Skill credentials synchronize when the current Gateway account signs in, renews its credentials, or switches accounts, and all three legacy data Skills load normally. Restrictions remain in place for local and test APIs. Shared settings are still persisted through the HogAgent configuration API. See [configuration](docs/configuration.md).
+
+Standalone builds validate bundled contracts without requiring sibling frontends. For partial Gateway tests, explicit `--skills=off` disables Skills only in development mode (same original directory and ports); production shared credentials and default behavior are unchanged. See [development](docs/development.md) and [configuration](docs/configuration.md).
+
 [English](README.md) · [简体中文](README-CN.md) · [日本語](README-JA.md)
 
 HogAgent is a general-purpose AI agent engine optimized for financial research. It combines model reasoning, tools and Skills to complete research, analysis and file-based tasks, with a browser interface and a JSONL RPC interface for application integration.
 
 - **Website:** [ciweiai.com/hogagent.html](https://ciweiai.com/hogagent.html)
 - **Financial data sources and tools:** [Hedgehog Skills](https://github.com/hedgehog-finance/hedgehog-skills/)
-- **Version:** `1.2.5` · **License:** [GPL-3.0](LICENSE)
+- **Version:** `1.2.6` · **License:** [GPL-3.0](LICENSE)
 
 ## Capabilities
 
@@ -16,8 +20,11 @@ HogAgent is a general-purpose AI agent engine optimized for financial research. 
 - **Models:** Multiple model providers and custom OpenAI-compatible endpoints, with separate main-model and audit-model settings.
 - **Web UI:** Streaming conversations, session history, user/workspace selection, model settings, Skills, tools, themes and file previews.
 - **Integration:** stdin/stdout JSONL commands and events, session persistence, automatic context compaction and process/session/run context. Gateway supplies authenticated project bindings and owns its project metadata.
+- **Mid-turn steering:** RPC advertises `supports_steering`; session/run guards and correlated acknowledgements let clients correct the active task safely. Unconsumed control messages are cleared when their Prompt Run ends, including model failures. See [RPC steering](docs/orchestrator-integration.md#steer).
 
 The Pi Agent Harness is included in `src/vendor/`. HogAgent runs independently or as a subprocess of HedgehogGateway, an IDE plugin or another application.
+
+Development Gateway launches isolate HogAgent configuration with `HOGAGENT_USER_DIR`. Data Skills use production services and an explicitly copied production user key; three legacy data Skills are temporarily excluded from development loading without modifying the external skill library. Model borrowing still requires `--llm=prod`. See [configuration and development isolation](docs/configuration.md). Production default directories and Skill availability are unchanged.
 
 ## Install and run
 
@@ -53,6 +60,8 @@ Configure an LLM provider in the Web UI or `~/.hogagent/llm-settings.json`:
 ```
 
 Use the model available from your provider. Search settings live in `~/.hogagent/search_settings.json`; financial data credentials live in the corresponding Skill's `api-key` entry in `~/.hogagent/skills_config.json`. Standalone and Gateway-managed HogAgent share this configuration directory.
+
+Managed Hedgehog keys and their service endpoints synchronize together when Gateway changes environments; model preferences and other providers are preserved. See [configuration](docs/configuration.md).
 
 ## Workspace and runtime
 
@@ -90,3 +99,9 @@ npm run test:readme
 | [Development](docs/development.md) / [Troubleshooting](docs/troubleshooting.md) | Build, tests and diagnostics |
 
 Windows checkouts preserve LF line endings for reproducible builds. Python setup accepts validated framework interpreter symlinks; downloads remain bounded to their announced size if a file grows during transfer.
+
+Image/video input is distinct from ordinary file upload. Media references retain their original message through queued delivery, retries, audits and compaction. Native clipboard paste works with Ctrl+V on Windows and Cmd+V on macOS. See [multimodal input](docs/multimodal-input.md).
+
+WebUI media audit: upload batches retain their intent before I/O, late events cannot restore an old Session input into a new Session, and video preview errors preserve the media attachment. See [Web UI](docs/web-ui.md).
+
+Standalone 1.2.6 publication checks and their validation limits are recorded in [release validation](docs/release-validation.md).

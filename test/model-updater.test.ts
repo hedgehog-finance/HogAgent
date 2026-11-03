@@ -14,6 +14,47 @@ describe("model-updater", () => {
     vi.restoreAllMocks();
   });
 
+  it('does not interpret malformed modality strings as supported media', async () => {
+    const { transformHedgehogProxy } = await import('../src/model-updater.ts');
+    const { configModelToAgentModel } = await import('../src/model-utils.ts');
+    const malformed = { id: 'fixture', name: 'fixture', contextWindow: 10000, inputModalities: 'unsupported-image-video' };
+    const models = transformHedgehogProxy({ data: [malformed] });
+    expect(models[0]?.inputModalities).toBeUndefined();
+    const model = configModelToAgentModel(malformed as any, 'custom', 'https://fixture.invalid/v1');
+    expect(model.input).toEqual(['text']);
+    expect((model as any).supportsVideoInput).toBe(false);
+  });
+
+  it.each([503, 401])('disables media when authoritative deployment discovery returns %s', async status => {
+    globalThis.fetch = vi.fn(async url => String(url).includes('/model/info')
+      ? new Response('', { status })
+      : new Response(JSON.stringify({ data: [{ id: 'claimed-vision', inputModalities: ['text', 'image', 'video'] }] }), { status: 200 })) as typeof fetch;
+    const { fetchModelsForProvider } = await import('../src/model-updater.ts');
+    expect((await fetchModelsForProvider('hedgehog', 'https://fixture.invalid/v1', 'fixture-key'))[0]?.inputModalities).toEqual(['text']);
+  });
+
+  it('requires an explicit OpenRouter modality array to enable image input', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ data: [
+      { id: 'openai/vision-fixture', architecture: { input_modalities: ['text', 'image'] } },
+      { id: 'openai/malformed-fixture', architecture: { input_modalities: 'unsupported-image' } },
+    ] }), { status: 200 })) as typeof fetch;
+    const { fetchModelsForProvider } = await import('../src/model-updater.ts');
+    expect((await fetchModelsForProvider('openrouter')).map(model => model.inputModalities)).toEqual([['text', 'image'], ['text']]);
+  });
+
+  it('uses explicit deployment capabilities, takes their intersection and never guesses names', async () => {
+    globalThis.fetch = vi.fn(async (url) => new Response(JSON.stringify(String(url).includes('/model/info')
+      ? { data: [
+          { model_name: 'vision', model_info: { supports_vision: true, supports_video_input: true } },
+          { model_name: 'mixed', model_info: { supports_vision: true, supports_video_input: true } },
+          { model_name: 'mixed', model_info: { supports_vision: true, supports_video_input: false } },
+        ] }
+      : { data: [{ id: 'vision' }, { id: 'mixed' }, { id: 'qwen-vl-unknown' }] }), { status: 200 })) as typeof fetch;
+    const { fetchModelsForProvider } = await import('../src/model-updater.ts');
+    const models = await fetchModelsForProvider('hedgehog', 'https://fixture.invalid/v1', 'fixture-key');
+    expect(models.map(model => model.inputModalities)).toEqual([['text', 'image', 'video'], ['text', 'image'], ['text']]);
+  });
+
   it("returns models from OpenAI-compatible response", async () => {
     const mockData = {
       data: [

@@ -1,3 +1,4 @@
+import { readMediaAttachment, type MediaAttachment } from "../media/media-input.ts";
 import { createHash } from "node:crypto";
 import { fingerprintFile } from "../artifacts/artifact-file-facts.ts";
 import { deliveryReceiptsFromEntries } from "../artifacts/file-delivery.ts";
@@ -559,6 +560,14 @@ async function handleDownload(req: IncomingMessage, res: ServerResponse, workspa
     const history = existsSync(historyPath) ? readFileSync(historyPath, "utf8").split("\n").flatMap(line => {
       try { return [JSON.parse(line)]; } catch { return []; }
     }) : [];
+    const mediaReference = history.flatMap(entry => entry.type === 'message' && entry.message?.role === 'custom' && entry.message.customType === 'hogagent.media.v1' ? entry.message.details?.attachments ?? [] : []).find((file: MediaAttachment) => file.path === relativePath);
+    if (mediaReference) {
+      const media = await readMediaAttachment(mediaReference, workspace);
+      const data = Buffer.from(media.data, 'base64');
+      res.writeHead(200, { 'Content-Type': media.mimeType, 'Content-Length': data.length, 'Cache-Control': 'no-store' });
+      res.end(data);
+      return;
+    }
     const receiptId = url.searchParams.get("receipt");
     const matches = deliveryReceiptsFromEntries(history, sessionId).filter(file => file.path === relativePath && (!receiptId || file.id === receiptId));
     const receipt = matches.length === 1 ? matches[0] : undefined;

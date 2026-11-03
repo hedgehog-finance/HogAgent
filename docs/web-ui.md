@@ -257,3 +257,11 @@ Settings are saved to `~/.hogagent/hogagent.json`.
 回归测试：`test/web/markdown-document.test.ts` 检查图表尾注解析和图片路径边界，`test/web/delivery-download.test.ts` 检查实际下载认证及文档变更；构建后运行 `node test/browser/markdown-preview.mjs` 检查真实浏览器渲染、主题、响应式布局、恶意内容净化、超限提示和关闭时的资源清理。可通过 `HOGAGENT_BROWSER_EXECUTABLE` 指定 Chromium 路径，测试仅使用临时文档和模拟会话，不调用模型。
 
 Download streams are bounded to the announced Content-Length, including on persistent HTTP connections. If a file grows during a transfer, the appended bytes cannot corrupt the following response. Empty files complete without opening a stream. Receipt checks still reject files already changed before download.
+
+## 多模态附件（1.2.6）
+
+模型能力、两个上传入口、原生图片／视频、队列及审核协议见[多模态输入](multimodal-input.md)。旧附件默认普通文件；只有显式媒体用途才将内容传入模型。
+
+### 2026-11-02 多模态前端审计
+
+上传批次先一次性登记全部附件，再逐项上传；存在待上传或失败项时不能发送。新会话清空草稿后，旧批次不会继续把余下文件加入新会话。发送失败快照按 Session 绑定，旧会话 error/agent_end 不得恢复旧媒体或解除当前运行锁。普通文件在 Quick 和 /new 入口一致保持路径引用；无媒体时省略 attachments 字段。视频编码预览失败会显示提示并保留视频用途。jsdom 回归覆盖批次跨会话、失败恢复、晚到事件及视频错误，不能代替 Windows/Safari 实机测试。

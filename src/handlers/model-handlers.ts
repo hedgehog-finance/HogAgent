@@ -1,3 +1,5 @@
+import { fetchModelsForProvider } from "../model-updater.ts";
+import { modelMediaCapabilities } from "../media/context.ts";
 /**
  * Model & Settings RPC Handlers
  *
@@ -40,6 +42,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
     emitEvent({
       type: "state",
       model: harnessRef.current.getModel().id,
+      capabilities: deps.getCapabilitiesFn(),
       provider: config.llmProvider.provider,
       base_url: config.llmProvider.baseUrl || "",
       thinking_level: harnessRef.current.getThinkingLevel(),
@@ -68,7 +71,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
     );
     await harnessRef.current.setModel(model);
     log.info("Model changed", { modelId });
-    emitEvent({ type: "model_changed", model_id: modelId });
+    emitEvent({ type: "model_changed", model_id: modelId, media: modelMediaCapabilities(model) });
   }
 
   // ─── onSetThinkingLevel ──────────────────────────────────────────────
@@ -341,7 +344,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
       if (explicitCache !== undefined && !modelId) {
         const currentModel = harnessRef.current.getModel();
         const updatedModel = configModelToAgentModel(
-          { id: currentModel.id, name: currentModel.name, contextWindow: currentModel.contextWindow },
+          { id: currentModel.id, name: currentModel.name, contextWindow: currentModel.contextWindow, inputModalities: ["text", ...(currentModel.input?.includes("image") ? ["image" as const] : []), ...(modelMediaCapabilities(currentModel).video ? ["video" as const] : [])] },
           currentModel.provider,
           currentModel.baseUrl || "",
           sysCfg.explicitCache,
@@ -367,6 +370,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
 
     // 6. Update model if specified
     if (modelId) {
+      config.llmProvider.models = await fetchModelsForProvider(config.llmProvider.provider, config.llmProvider.baseUrl, config.llmProvider.apiKey);
       const modelConfig = config.llmProvider.models?.find((model) => model.id === modelId);
       const sysCfg = loadSystemConfig();
       const model = configModelToAgentModel(
@@ -415,8 +419,9 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
           ),
         };
         // Rebuild auditModelObj
+        const auditModels = await fetchModelsForProvider(auditProvider, mergedAudit?.baseUrl, auditApiKey);
         deps.auditModelObjRef.value = configModelToAgentModel(
-          { id: auditModelId, name: auditModelId, contextWindow: DEFAULT_CONTEXT_WINDOW },
+          auditModels.find(model => model.id === auditModelId) ?? { id: auditModelId, name: auditModelId, contextWindow: DEFAULT_CONTEXT_WINDOW },
           auditProvider,
           mergedAudit?.baseUrl || ""
         );
@@ -439,6 +444,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
       savedEvent.provider = provider || existingSettings.provider || config.llmProvider.provider;
       savedEvent.modelId = modelId || existingSettings.modelId || harnessRef.current.getModel().id;
     }
+    savedEvent.media = modelMediaCapabilities(harnessRef.current.getModel());
     emitEvent(savedEvent as RpcEvent);
   }
 
@@ -453,6 +459,7 @@ export function createModelHandlers(deps: HandlerDeps, state: HandlerMutableStat
     try {
       const { models, error } = await listConfiguredModels({ provider, baseUrl, apiKey });
       if (models.length > 0) {
+        if (target === "main" && provider === config.llmProvider.provider) config.llmProvider.models = models;
         emitEvent({ type: "models_refreshed", provider, models, target });
       } else {
         const hint = error || `${provider} has no available models`;

@@ -578,7 +578,9 @@ This allows:
 
 ## skills_config.json
 
-`~/.hogagent/skills_config.json` 存储所有技能配置（API Key + 模式可见性）。多个技能的配置存储在同一个文件中。Gateway 登录、续期、Key 更新和切换用户通过 [HogAgent 配置 API](configuration-api.md)，由 HogAgent 自动同步已配置及已安装的 hedgehog-* Skill 的 api-key；托管与独立 HogAgent 必须读取同一份持久化 Key。同步只更新 Key，保留模式标志和其他字段，新安装 Skill 在连接/热加载时补齐。托管模式与独立模式的 Bash 沙箱均允许只读访问这一份共享文件，仍拒绝链接文件和写入；其他 HogAgent 凭据文件保持不可读。
+`<HOGAGENT_USER_DIR>/skills_config.json`（默认 `~/.hogagent/skills_config.json`）存储所有技能配置。Gateway 登录、续期、Key 更新和切换用户通过 [HogAgent 配置 API](configuration-api.md)，由 HogAgent 同步已配置及已安装的 hedgehog-* Skill 的 api-key；托管与独立实例必须读取同一环境的持久化配置。同步保留模式标志和其他字段，新安装 Skill 在连接/热加载时补齐。开发数据 Skills 固定使用正式接口和正式用户 Key，不提供端点切换；此前确认暂不在开发中启用的三个旧版数据技能暂不加载、不播种凭据，见[测试禁用说明](configuration.md)。不修改外部技能库、不删除文件，正式模式可用性不变。
+
+托管与独立 Bash 沙箱均允许只读访问这一份共享 Skill 文件，仍拒绝链接文件和写入；其他 HogAgent 凭据文件保持不可读。Bash 环境会移除启动器的 `HEDGEHOG_DEV_LLM_API_KEY` / `HEDGEHOG_DEV_DATA_API_KEY` 临时别名，模型密钥不泄露给脚本；不影响 HogAgent 的正常落盘、数据 Skill 配置和既有 `CIWEIAI_API_KEY` 数据凭据通路。
 
 ### 格式
 

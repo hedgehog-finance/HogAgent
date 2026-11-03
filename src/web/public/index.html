@@ -14,7 +14,7 @@
         <div class="logo">
           <img src="/logo.png" alt="HogAgent" class="logo-icon">
           <div class="logo-text-group">
-            <div class="logo-title"><span class="logo-text">HogAgent</span><span class="app-version">v1.2.5</span></div>
+            <div class="logo-title"><span class="logo-text">HogAgent</span><span class="app-version">v1.2.6</span></div>
             <span class="logo-subtitle" data-i18n="logo.subtitle">Financial Research Agent</span>
           </div>
         </div>
@@ -211,7 +211,11 @@
             data-i18n-placeholder="chat.placeholder" data-i18n-aria-label="chat.placeholder"
             placeholder="Type a message..." rows="1"></textarea>
           <div class="composer-actions">
-            <button class="btn btn-ghost btn-icon upload-btn" id="upload-btn" title="Upload files" data-i18n-title="chat.upload"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
+            <details class="attachment-menu"><summary class="btn btn-ghost btn-icon" aria-label="添加附件">＋</summary><div>
+              <button type="button" class="btn btn-ghost" id="upload-btn">上传文件（仅工作区）</button>
+              <button type="button" class="btn btn-ghost" id="media-btn" disabled>添加图片／视频</button>
+            </div></details>
+            <input type="file" id="media-input" multiple hidden accept=".jpg,.jpeg,.png,.webp,.mp4,.mov">
             <input type="file" id="file-input" multiple style="display:none">
             <div class="slash-autocomplete" id="slash-autocomplete"></div>
             <!-- Tools/Skills button + floating menu -->
@@ -243,7 +247,7 @@
   <div class="modal-overlay" id="settings-modal">
     <div class="modal">
       <div class="modal-header">
-        <div class="settings-heading"><h2 data-i18n="settings.title">Settings</h2><span class="app-version">HogAgent v1.2.5</span></div>
+        <div class="settings-heading"><h2 data-i18n="settings.title">Settings</h2><span class="app-version">HogAgent v1.2.6</span></div>
         <button class="btn btn-icon" id="close-settings">✕</button>
       </div>
       <div class="settings-tabs">

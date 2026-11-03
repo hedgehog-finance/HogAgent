@@ -27,7 +27,9 @@ Gateway 对配置请求串行调用，模型查询独立异步执行；配置请
 
 `save_settings` 保留同 provider 的未指定字段并同步主 Key 与 provider Key 缓存。切换 provider 时，省略 Key 只使用目标 provider 缓存，没有缓存则清空；省略地址和模型时清空旧值，不沿用另一 provider 的端点。audit 局部更新保留同 provider 的配置，切换 provider 遵循同样的隔离规则，`audit: {}` 清除审核配置。`sync_credentials` 由 Gateway 登录、续期、更新及切换账号调用：LLM Key 写入 `llm-settings.json`，API Key 写入 `skills_config.json` 相应 `hedgehog-*` Skill 的 `api-key`。Skill 名称由 HogAgent 自行扫描系统、安装目录和给定 workspace 下的 `.hogagent/skills`，并合并已有配置项。
 
-同步保留模型、Base URL、思考级别、第三方 Key、Skill 标志及明确关闭的审核模型。空 Key 清除旧值，省略字段保持不变；损坏 JSON 不覆盖，写入使用同目录唯一临时文件及原子替换。POSIX 文件权限为 `0600`，Windows 继承目录 ACL，不能把 `0600` 视为 Windows 用户隔离。读取和写入权限失败、只读文件或文件锁导致的替换失败会返回 `success: false`，包含文件路径和错误码，不回退直接写目标文件，也不改变系统权限。两份文件不是跨文件事务；任一失败都使同步失败，修复权限后重试完整同步。Gateway 账号元数据中的历史第三方配置不覆盖 HogAgent 的个人配置。
+同步保留模型、思考级别、第三方 Key/端点、Skill 标志及明确关闭的审核模型。托管 Hedgehog Key 与其签发环境的 Base URL 一起同步，包含 `providerBaseUrls.hedgehog` 缓存；非活动 provider 的模型查询、切回主模型或审核模型时可复用同一缓存端点，不将测试 Key 发送到正式默认地址。数据 Skill 仍只同步 `api-key`，不增加接口切换字段；开发模式使用正式数据端点与正式用户 Key，正式 API 开发模式跟随当前账号更新三个外部数据技能的共享 Key；local/test 仍跳过[受限外部技能](configuration.md)，不删除或重写其已有配置。
+
+空 Key 清除旧值，省略字段保持不变；损坏 JSON 不覆盖，写入使用同目录唯一临时文件及原子替换。POSIX 文件权限为 `0600`，Windows 继承目录 ACL，不能把 `0600` 视为 Windows 用户隔离。读取和写入权限失败、只读文件或文件锁导致的替换失败会返回 `success: false`，包含文件路径和错误码，不回退直接写目标文件，也不改变系统权限。两份文件不是跨文件事务；任一失败都使同步失败，修复权限后重试完整同步。Gateway 账号元数据中的历史第三方配置不覆盖 HogAgent 的个人配置。
 
 连接状态和主模型的 provider 都不限制账号同步：即使 HogAgent 未连接、主模型使用 OpenAI 等第三方，也必须更新 `providerApiKeys.hedgehog`；主模型使用 Hedgehog 时更新主 `apiKey`；audit 使用 Hedgehog 时无条件一并更新 `audit.apiKey`。未使用 Hedgehog 的主模型和审核模型保持原有 Key。
 
@@ -36,3 +38,9 @@ Gateway 对配置请求串行调用，模型查询独立异步执行；配置请
 此接口负责持久化。Gateway 对已连接的 HogAgent 仍发送现有 `save_settings` / `set_model` / `reload_config` RPC，由 FIFO 在安全边界应用。Gateway 的 `save_settings` 带 `reloadPersistedLlm: true`，在命令实际执行时读取最新共享文件并只更新内存，不再把排队的旧快照写回文件。若通知中的凭据与文件已不同则报错，要求重新应用或重启，避免旧账号进程读入新账号的 Key。配置子进程启动前还会核对同步请求所属账号，拒绝切换账号后才执行的旧账号写入；连接阶段显式传入本次解析出的安装目录，Skill 同步必须等待写入完成后才返回。API Key 更新还同步连接池和后续进程环境；不重放结果不确定的调用。跨账号切换及自动替换 LLM Key 沿用 Gateway 重启边界。
 
 独立 WebUI 与托管 HogAgent 共享文件；已运行的独立 WebUI 在账号或 Key 改变后需重启。文件共享不提供多个账号并发写同一配置目录的隔离，也不自动热切换无关进程。
+
+## 多模态附件（1.2.6）
+
+模型能力、两个上传入口、原生图片／视频、队列及审核协议见[多模态输入](multimodal-input.md)。旧附件默认普通文件；只有显式媒体用途才将内容传入模型。
+
+Hedgehog 的 `/model/info` 是部署能力依据：请求失败时将此次目录中的模型收敛为文本输入，不保留 `/models` 中未经核实的媒体声明。同名部署取能力交集；配置及 OpenRouter 的模态字段必须是数组，异常字符串不能开启图片或视频。

@@ -18,6 +18,20 @@ function createRuntimeContext(workspaceDir: string, sessionId: string, sessionTa
 }
 
 describe("RPC module", () => {
+  it("correlates immediate steering rejections without ending the active prompt", async () => {
+    const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    setCurrentSessionId("active-session");
+    registerHandler("steer", async () => { throw new Error("steering failed"); });
+    try {
+      enqueueCommand({ type: "steer", session_id: "other-session", request_id: "wrong-session", text: "correction" });
+      enqueueCommand({ type: "steer", session_id: "active-session", request_id: "failed-steer", text: "correction" });
+      await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+      const events = write.mock.calls.map(([line]) => JSON.parse(String(line)));
+      expect(events[0]).toMatchObject({ type: "error", command_type: "steer", request_id: "wrong-session", code: "CONFLICT" });
+      expect(events[1]).toMatchObject({ type: "error", command_type: "steer", request_id: "failed-steer" });
+      expect(events.some(event => event.type === "agent_end")).toBe(false);
+    } finally { unregisterHandler("steer"); write.mockRestore(); }
+  });
   it("correlates completion and failure to the queued command without leaking request IDs", async () => {
     const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     registerHandler("reload_config", async command => {

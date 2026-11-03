@@ -153,6 +153,8 @@ export interface PersistedLlmSettings {
   /** Quick-mode thinking depth override (default "off"), configurable by client */
   quickThinkingLevel?: string;
   providerApiKeys?: Record<string, string>;  // Per-provider API keys
+  /** Endpoint paired with a managed provider key, including non-active providers. */
+  providerBaseUrls?: Record<string, string>;
   // Audit model configuration
   audit?: {
     provider?: string;
@@ -176,7 +178,7 @@ export function mergeLlmSettingsPatch(current: PersistedLlmSettings, patch: Pers
   const next: PersistedLlmSettings = { ...current, ...patch, providerApiKeys };
   if (providerChanged) {
     next.apiKey = patch.apiKey ?? providerApiKeys[provider] ?? "";
-    next.baseUrl = patch.baseUrl ?? "";
+    next.baseUrl = patch.baseUrl ?? current.providerBaseUrls?.[provider] ?? "";
     next.modelId = patch.modelId ?? "";
   }
   if (patch.apiKey !== undefined || providerChanged) providerApiKeys[provider] = next.apiKey ?? "";
@@ -193,7 +195,7 @@ export function mergeLlmSettingsPatch(current: PersistedLlmSettings, patch: Pers
         ...current.audit, ...patch.audit,
         ...(changed ? {
           apiKey: patch.audit.apiKey ?? (auditProvider ? providerApiKeys[auditProvider] : undefined) ?? "",
-          baseUrl: patch.audit.baseUrl ?? "",
+          baseUrl: patch.audit.baseUrl ?? (auditProvider ? current.providerBaseUrls?.[auditProvider] : undefined) ?? "",
           modelId: patch.audit.modelId ?? "",
         } : {}),
       };

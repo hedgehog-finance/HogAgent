@@ -1,3 +1,4 @@
+import { encodeAuditMedia, registerMediaHooks } from "./media/context.ts";
 import { buildInstructionPrompt } from "./instruction-snapshot.ts";
 import { formatInstructionScope } from "./instruction-scope.ts";
 import { formatRuntimeContextForModel, type DeepReadonly, type RuntimeContextSnapshot } from "./runtime-context.ts";
@@ -317,17 +318,18 @@ export async function classifyIntent(
   const guarded = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, guard]);
 
   const runClassification = async (msgs: Message[]): Promise<{ text: string; usage: AuditUsageStats }> => {
+    const encoded = await encodeAuditMedia(msgs, auditModelObj);
     const stream = streamSimple(auditModelObj, {
       systemPrompt: classificationPrompt,
-      messages: msgs,
+      messages: encoded.messages,
     }, {
       apiKey: auditApiKey,
       signal: controller.signal,
       // Inject tracking metadata into request body for LLM proxy usage stats
-      onPayload: usageOwner ? (payload) => {
-        const body = payload as Record<string, unknown>;
-        return { ...body, metadata: buildLlmMetadata(usageOwner) };
-      } : undefined,
+      onPayload: (payload) => {
+        const body = encoded.payload(payload) as Record<string, unknown>;
+        return usageOwner ? { ...body, metadata: buildLlmMetadata(usageOwner) } : body;
+      },
     });
     let responseText = "";
     for await (const event of stream) {
@@ -762,6 +764,7 @@ export async function auditScore(
       getApiKeyAndHeaders: async () => ({ apiKey: auditConfig.apiKey }),
       systemPrompt: () => systemPrompt,
     });
+    registerMediaHooks(auditHarness);
     _activeAuditHarness = auditHarness;
     // Attach metadata hook for audit LLM calls
     if (usageOwner) registerLlmMetadataHook(auditHarness, usageOwner);

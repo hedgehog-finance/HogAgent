@@ -1,3 +1,4 @@
+import { registerMediaHooks } from "./media/context.ts";
 /**
  * Main LLM Request Hooks
  *
@@ -58,6 +59,7 @@ export function registerLlmMetadataHook(
   harness: AgentHarness,
   tracking: LlmTrackingContext,
 ): void {
+  registerMediaHooks(harness);
   harness.on("before_provider_payload", ({ payload }) => {
     const body = payload as Record<string, unknown>;
     return { payload: { ...body, metadata: buildLlmMetadata(tracking) } };

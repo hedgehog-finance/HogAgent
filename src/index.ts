@@ -1,3 +1,5 @@
+import { fetchModelsForProvider } from "./model-updater.ts";
+import { modelMediaCapabilities } from "./media/context.ts";
 import { gatewayProjectsDirectory } from "./gateway-project.ts";
 /**
  * HogAgent Main Entry Point
@@ -144,6 +146,8 @@ export async function createHogAgent(cliArgs?: CliArgs): Promise<HogAgentInstanc
 
   // 2. Prepare the initial model
   // Determine initial model — use persisted modelId if available
+  const discoveredModels = await fetchModelsForProvider(config.llmProvider.provider, config.llmProvider.baseUrl, config.llmProvider.apiKey);
+  if (discoveredModels.length) config.llmProvider.models = discoveredModels;
   const persistedSettings = loadPersistedLlmSettings();
   const sysCfg = loadSystemConfig();
   const persistedModelId = persistedSettings.modelId;
@@ -250,8 +254,9 @@ export async function createHogAgent(cliArgs?: CliArgs): Promise<HogAgentInstanc
   // 5.6 Create audit model object (vendor Model, NOT AgentHarness)
   let auditModelObj: Model<any> | null = null;
   if (config.auditModel) {
+    const auditModels = config.auditModel.provider === config.llmProvider.provider && config.auditModel.baseUrl === config.llmProvider.baseUrl ? config.llmProvider.models : await fetchModelsForProvider(config.auditModel.provider, config.auditModel.baseUrl, config.auditModel.apiKey);
     auditModelObj = configModelToAgentModel(
-      { id: config.auditModel.modelId, name: config.auditModel.modelId, contextWindow: DEFAULT_CONTEXT_WINDOW },
+      auditModels.find(model => model.id === config.auditModel!.modelId) ?? { id: config.auditModel.modelId, name: config.auditModel.modelId, contextWindow: DEFAULT_CONTEXT_WINDOW },
       config.auditModel.provider,
       config.auditModel.baseUrl || "",
     );
@@ -375,6 +380,8 @@ export async function createHogAgent(cliArgs?: CliArgs): Promise<HogAgentInstanc
       supports_llm_chat: true,
       supports_gateway_projects: Boolean(gatewayProjectsDirectory()),
       supports_concurrent_history_read: true,
+      supports_steering: true,
+      media: modelMediaCapabilities(harnessRef.current.getModel()),
       runtime_context: getRuntimeContextCapability(),
       llmProvider: {
         provider: config.llmProvider.provider,
